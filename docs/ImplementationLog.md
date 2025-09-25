@@ -94,3 +94,55 @@ Implemented Helm chart scaffold for Kaito workspace manifests:
 Design notes:
 - Kept chart type `application` to align with standard Helm packaging and ease future extension with values-driven templating.
 - Left manifest values static for now; will parameterize via `values.yaml` when additional workspaces are introduced.
+
+## AKS Module Restructure (Date: 2025-09-25)
+
+Refined `aks-kaito` Terraform module layout for clarity:
+- Retained locals and subscription/client data sources in `main.tf`.
+- Moved AKS managed cluster, SSH key, and user-assigned identity resources into new `kas.tf`.
+- Extracted role assignments to dedicated `rbac.tf` for easier permission management visibility.
+- Collected output declarations in `outputs.tf` keeping exported values discoverable.
+
+Rationale:
+- Aligns with repository convention of splitting files by resource category per Terraform guidance.
+- Simplifies navigation when adjusting RBAC scopes, outputs, or cluster configuration individually.
+
+Next steps:
+- Consider documenting module usage specifics in a README under `terraform/modules/aks-kaito` if reused externally.
+
+## ArgoCD Extension (Date: 2025-09-25)
+
+Enabled GitOps support through the Microsoft ArgoCD extension:
+- Added locals for extension naming, namespace, and default application visibility.
+- Introduced configurable variables for version, release train, auto-upgrade, and HA toggle with sensible defaults.
+- Created `extensions.tf` provisioning a cluster-scoped extension via `azapi_resource` with configuration mirroring Microsoft Learn guidance (cluster-wide install, HA optional).
+
+Rationale:
+- Provides managed ArgoCD deployment aligned with Azure preview recommendations without relying on CLI automation.
+- Allows consumers to opt into new builds or HA through module inputs while keeping defaults ready for demo environments.
+
+Next steps:
+- Evaluate adding workload identity parameters once identities are in place for production usage.
+
+## ArgoCD Bootstrap Automation (Date: 2025-09-25)
+
+Automated GitOps bootstrap after extension installation:
+- Added `argocd/bootstrap-application.yaml` defining a cluster-wide app-of-apps pointing to `argocd/apps` for future workloads.
+- Scoped a companion README in both `argocd/` and `argocd/apps/` to explain manifest layout.
+- Introduced `argocd_bootstrap_manifest_url` variable with default raw GitHub URL and wired `azapi_resource_action` `runCommand` call in `bootstrap.tf` to execute `kubectl apply` via AKS Run Command once the extension is ready.
+
+Rationale:
+- Keeps bootstrap logic entirely within Azure APIs, enabling full automation without separate scripts.
+- Makes it easy to extend GitOps footprint by committing additional Argo CD Applications under `argocd/apps`.
+
+Next steps:
+- Consider toggling bootstrap based on environment (e.g., different branches) or templating multiple bootstrap manifests when needed.
+
+## Envoy Gateway GitOps (Date: 2025-09-25)
+
+Bootstrapped Envoy Gateway deployment through Argo CD:
+- Added `argocd/apps/envoy-gateway.yaml` Application installing the upstream OCI Helm chart (`gateway-helm` v1.5.1) into `envoy-gateway-system` with namespace auto-creation.
+- Enabled automated sync, prune, and self-heal so Helm upgrades propagate without manual intervention.
+
+Next steps:
+- Commit additional Gateway/HTTPRoute resources under `argocd/apps` to publish workloads once Envoy Gateway is running.
