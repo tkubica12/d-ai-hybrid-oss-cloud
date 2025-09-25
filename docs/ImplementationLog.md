@@ -84,3 +84,13 @@ AKS control plane and load balancer operations require subnet-level join and LB 
 Follow-ups:
 - Optionally narrow scope to only required subnets if principle of least privilege must be strictly minimized.
 - Add documentation for required roles in module README if external consumption expected.
+
+## Model Workspace Chart (Date: 2025-09-24)
+
+Implemented Helm chart scaffold for Kaito workspace manifests:
+- Created base `Chart.yml` with metadata (`apiVersion`, `name`, semantic `version`, and `appVersion`).
+- Added `templates/gpt-oss-20b.yaml` workspace manifest targeting `Standard_NV36ads_A10_v5` per requirements.
+
+Design notes:
+- Kept chart type `application` to align with standard Helm packaging and ease future extension with values-driven templating.
+- Left manifest values static for now; will parameterize via `values.yaml` when additional workspaces are introduced.
