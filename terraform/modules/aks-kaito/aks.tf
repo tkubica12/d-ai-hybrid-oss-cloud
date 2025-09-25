@@ -38,7 +38,7 @@ resource "azapi_resource" "aks" {
         {
           name         = "systempool"
           count        = 1
-          vmSize       = "Standard_DS2_v2"
+          vmSize       = "Standard_D4ads_v6"
           osType       = "Linux"
           mode         = "System"
           vnetSubnetID = var.subnet_id_node
