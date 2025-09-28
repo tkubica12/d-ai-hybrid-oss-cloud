@@ -70,7 +70,7 @@ variable "aso_crd_pattern" {
 	Each entry follows the "<group>/<kind>" glob match used by ASO; include entire groups to keep dependencies intact.
 	Example: "resources.azure.com/*;containerservice.azure.com/*;keyvault.azure.com/*;managedidentity.azure.com/*;eventhub.azure.com/*".
 	EOT
-  default     = "resources.azure.com/*;containerservice.azure.com/*;keyvault.azure.com/*;managedidentity.azure.com/*;eventhub.azure.com/*"
+	default     = "resources.azure.com/*;cognitiveservices.azure.com/*;apimanagement.azure.com/*;managedidentity.azure.com/*;keyvault.azure.com/*"
 }
 
 variable "aso_chart_version" {

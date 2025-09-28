@@ -180,3 +180,14 @@ Mitigated intermittent `AnotherOperationInProgress` errors when applying Terrafo
 Addressed Azure Service Operator dependency failures in Argo CD by managing cert-manager via GitOps:
 - Added `argocd/apps/cert-manager.yaml` deploying the upstream Jetstack Helm chart with CRDs enabled and namespace auto-creation.
 - Documented the new application alongside existing workloads to keep bootstrap guidance current.
+
+## ASO CRD Scope (Date: 2025-09-28)
+
+Prevented Azure Service Operator from attempting to install all 250+ CRDs by tightening the default pattern:
+- Limited `aso_crd_pattern` Terraform variable to the Cognitiveservices and API Management groups plus common dependencies (resource, managed identity, Key Vault).
+- Ensures Argo CD chart sync succeeds with only the CRDs required for planned workloads.
+
+## ASO Helm Values Fix (Date: 2025-09-28)
+
+Resolved Azure Service Operator deployment failing to read Terraform-provided settings:
+- Corrected the Argo CD Application to reference the ConfigMap data using `valuesKey`, enabling Helm to consume the generated `aso-values.yaml` (including CRD pattern and Azure identity fields).
