@@ -63,3 +63,23 @@ variable "argocd_bootstrap_manifest_url" {
   default     = "https://raw.githubusercontent.com/tkubica12/d-ai-hybrid-oss-cloud/main/argocd/bootstrap-application.yaml"
 }
 
+variable "aso_crd_pattern" {
+  type        = string
+  description = <<-EOT
+	Semicolon-separated pattern controlling which Azure Service Operator v2 CRDs are installed.
+	Each entry follows the "<group>/<kind>" glob match used by ASO; include entire groups to keep dependencies intact.
+	Example: "resources.azure.com/*;containerservice.azure.com/*;keyvault.azure.com/*;managedidentity.azure.com/*;eventhub.azure.com/*".
+	EOT
+  default     = "resources.azure.com/*;containerservice.azure.com/*;keyvault.azure.com/*;managedidentity.azure.com/*;eventhub.azure.com/*"
+}
+
+variable "aso_chart_version" {
+  type        = string
+  description = <<-EOT
+	Helm chart version for Azure Service Operator v2 used by the Argo CD application.
+	Must correspond to a published package in the https://raw.githubusercontent.com/Azure/azure-service-operator/main/v2/charts repository.
+	Example: "2.15.0".
+	EOT
+  default     = "2.15.0"
+}
+

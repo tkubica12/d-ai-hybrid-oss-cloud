@@ -66,7 +66,10 @@ resource "azurerm_subnet_nat_gateway_association" "subs" {
   for_each       = { for k, v in azurerm_subnet.subs : k => v if k != "AzureBastionSubnet" }
   subnet_id      = each.value.id
   nat_gateway_id = azurerm_nat_gateway.main.id
-  depends_on     = [azurerm_nat_gateway_public_ip_association.main]
+  depends_on = [
+    azurerm_nat_gateway_public_ip_association.main,
+    azurerm_subnet_network_security_group_association.subnet
+  ]
 }
 
 resource "azurerm_public_ip" "bastion" {

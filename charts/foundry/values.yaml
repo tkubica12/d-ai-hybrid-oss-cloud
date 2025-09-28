@@ -1,0 +1,13 @@
+resourceGroup:
+  name: rg-foundry-ai
+  location: swedencentral
+
+account:
+  name: af-foundry-ai
+  location: swedencentral
+  kind: AIServices
+  sku:
+    name: S0
+    tier: Standard
+  publicNetworkAccess: Enabled
+  allowProjectManagement: true

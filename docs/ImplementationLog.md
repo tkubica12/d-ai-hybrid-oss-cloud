@@ -146,3 +146,31 @@ Bootstrapped Envoy Gateway deployment through Argo CD:
 
 Next steps:
 - Commit additional Gateway/HTTPRoute resources under `argocd/apps` to publish workloads once Envoy Gateway is running.
+
+## Azure Service Operator Workload Identity (Date: 2025-09-27)
+
+Enabled Azure Service Operator v2 with managed identity authentication tied to the AKS workload identity issuer:
+- Added a dedicated user-assigned managed identity for ASO, federated identity credential, and Contributor role assignment at subscription scope.
+- Enabled `securityProfile.workloadIdentity` and the OIDC issuer on the AKS cluster ARM template, exporting issuer URL via module outputs.
+- Extended the AKS bootstrap Run Command to apply a `platform-bootstrap-settings` ConfigMap carrying non-sensitive Helm values (subscription, tenant, managed identity client ID, CRD pattern, chart metadata).
+- Introduced an Argo CD application that installs the upstream ASO Helm chart using `valuesFrom` to consume the Terraform-generated ConfigMap, plus README updates documenting the new workload.
+
+## ASO Workload Identity Fix (Date: 2025-09-27)
+
+Resolved Terraform apply failure for the ASO federated identity credential:
+- Restored `response_export_values` on the AKS `azapi_resource` so the workload identity issuer URL is persisted in state.
+- Simplified issuer extraction by reading the structured `output` map instead of attempting to `jsondecode` the response payload.
+- Successfully re-ran `terraform plan` and `terraform apply -auto-approve`, creating the ASO workload identity and updating the cluster in place.
+
+## AI Foundry Helm Chart (Date: 2025-09-27)
+
+Added a standalone Helm chart for provisioning an AI Foundry account via Azure Service Operator:
+- Created `charts/foundry` with chart metadata and default values for resource group and account naming.
+- Authored a single template emitting the Azure Resource Group and Cognitive Services `Account` resources, wired to values for location, SKU, and access settings.
+- Configured system-assigned identity, workload ownership, and AI Foundry-specific properties (public network access, project management) to align with ASO schema expectations.
+
+## NAT Association Stabilization (Date: 2025-09-27)
+
+Mitigated intermittent `AnotherOperationInProgress` errors when applying Terraform networking module:
+- Added explicit dependency from `azurerm_subnet_nat_gateway_association` resources to the NSG associations to serialize subnet mutations.
+- Ensures Terraform waits for security group attachments to complete before wiring the NAT gateway, reducing Azure control plane conflicts during apply.

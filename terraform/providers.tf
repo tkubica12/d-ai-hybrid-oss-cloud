@@ -13,11 +13,11 @@ terraform {
       version = ">= 3"
     }
     random = {
-      source = "hashicorp/random"
+      source  = "hashicorp/random"
       version = ">= 3"
     }
     tls = {
-      source = "hashicorp/tls"
+      source  = "hashicorp/tls"
       version = ">= 4"
     }
   }
@@ -25,7 +25,11 @@ terraform {
 
 provider "azurerm" {
   subscription_id = "673af34d-6b28-41dc-bc7b-f507418045e6"
-  features {}
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  }
 }
 
 provider "azapi" {

@@ -5,6 +5,13 @@ resource "azurerm_user_assigned_identity" "aks" {
   tags                = var.tags
 }
 
+resource "azurerm_user_assigned_identity" "aso" {
+  name                = local.aso_identity_name
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
 resource "azapi_resource" "aks" {
   type          = "Microsoft.ContainerService/managedClusters@2025-05-01"
   name          = local.aks_name
@@ -12,6 +19,9 @@ resource "azapi_resource" "aks" {
   location      = var.location
   tags          = var.tags
   ignore_casing = true
+  response_export_values = [
+    "properties.oidcIssuerProfile.issuerURL"
+  ]
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.aks.id]
@@ -80,12 +90,34 @@ resource "azapi_resource" "aks" {
           }
         }
       }
+      securityProfile = {
+        workloadIdentity = {
+          enabled = true
+        }
+      }
+      oidcIssuerProfile = {
+        enabled = true
+      }
     }
   }
-  depends_on = [azurerm_user_assigned_identity.aks]
+  depends_on = [
+    azurerm_user_assigned_identity.aks,
+    azurerm_user_assigned_identity.aso
+  ]
 }
 
 resource "tls_private_key" "ssh" {
   algorithm = "RSA"
   rsa_bits  = 4096
+}
+
+resource "azurerm_federated_identity_credential" "aso" {
+  name                = "aso-workload-identity"
+  resource_group_name = var.resource_group_name
+  parent_id           = azurerm_user_assigned_identity.aso.id
+  issuer              = try(azapi_resource.aks.output.properties.oidcIssuerProfile.issuerURL, "")
+  subject             = local.aso_service_account_subject
+  audience            = ["api://AzureADTokenExchange"]
+
+  depends_on = [azapi_resource.aks]
 }

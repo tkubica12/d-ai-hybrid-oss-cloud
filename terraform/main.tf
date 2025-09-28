@@ -19,7 +19,7 @@ module "networking" {
   location            = var.location
   base_name           = local.base_name
   base_name_nodash    = local.base_name_nodash
-  vnet_cidr           = "10.10.0.0/16" # can still override via variable if exposed later
+  vnet_cidr           = "10.10.0.0/16" 
   tags = {
     environment = "demo"
   }

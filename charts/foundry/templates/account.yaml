@@ -1,0 +1,29 @@
+apiVersion: resources.azure.com/v1api20200601
+kind: ResourceGroup
+metadata:
+  name: {{ .Values.resourceGroup.name | quote }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  azureName: {{ .Values.resourceGroup.name | quote }}
+  location: {{ .Values.resourceGroup.location | quote }}
+---
+apiVersion: cognitiveservices.azure.com/v1api20250601
+kind: Account
+metadata:
+  name: {{ .Values.account.name | quote }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  azureName: {{ .Values.account.name | quote }}
+  location: {{ .Values.account.location | quote }}
+  kind: {{ .Values.account.kind | quote }}
+  identity:
+    type: SystemAssigned
+  owner:
+    name: {{ .Values.resourceGroup.name | quote }}
+    namespace: {{ .Release.Namespace }}
+  sku:
+    name: {{ .Values.account.sku.name | quote }}
+    tier: {{ .Values.account.sku.tier | quote }}
+  properties:
+    publicNetworkAccess: {{ .Values.account.publicNetworkAccess | quote }}
+    allowProjectManagement: {{ .Values.account.allowProjectManagement }}
