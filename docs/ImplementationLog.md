@@ -174,3 +174,9 @@ Added a standalone Helm chart for provisioning an AI Foundry account via Azure S
 Mitigated intermittent `AnotherOperationInProgress` errors when applying Terraform networking module:
 - Added explicit dependency from `azurerm_subnet_nat_gateway_association` resources to the NSG associations to serialize subnet mutations.
 - Ensures Terraform waits for security group attachments to complete before wiring the NAT gateway, reducing Azure control plane conflicts during apply.
+
+## cert-manager GitOps (Date: 2025-09-28)
+
+Addressed Azure Service Operator dependency failures in Argo CD by managing cert-manager via GitOps:
+- Added `argocd/apps/cert-manager.yaml` deploying the upstream Jetstack Helm chart with CRDs enabled and namespace auto-creation.
+- Documented the new application alongside existing workloads to keep bootstrap guidance current.
