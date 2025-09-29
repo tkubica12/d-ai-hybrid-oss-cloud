@@ -12,7 +12,7 @@ spec:
     - repoURL: https://github.com/tkubica12/d-ai-hybrid-oss-cloud.git
       targetRevision: main
       ref: values
-    - repoURL: oci://registry-1.docker.io/envoyproxy/gateway-helm
+    - repoURL: oci://docker.io/envoyproxy
       chart: gateway-helm
       targetRevision: v1.5.1
       helm:

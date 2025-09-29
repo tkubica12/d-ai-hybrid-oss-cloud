@@ -202,7 +202,7 @@ Eliminated Argo CD Helm fetch failures for Envoy Gateway by vendoring the chart:
 ## Envoy Gateway OCI Source (Date: 2025-09-29)
 
 Returned Envoy Gateway to the upstream distribution now that the repo-server can pull OCI charts directly:
-- Removed the vendored `charts/gateway-helm` directory in favor of referencing the public `oci://registry-1.docker.io/envoyproxy/gateway-helm` chart at `v1.5.1`.
+- Removed the vendored `charts/gateway-helm` directory in favor of referencing the public `oci://docker.io/envoyproxy` registry (`gateway-helm` chart) at `v1.5.1`.
 - Updated the Argo CD application to a multi-source definition that combines the upstream chart with Git-tracked overrides in `argocd/values/envoy-gateway.yaml`.
 - Added a dedicated values file under `argocd/values/` to keep configuration alongside the manifest while remaining consistent with the new GitOps pattern.
 
