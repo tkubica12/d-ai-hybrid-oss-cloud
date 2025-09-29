@@ -18,8 +18,6 @@ locals {
     local.aso_namespace,
     local.aso_service_account_name
   )
-  aso_configmap_name = "platform-bootstrap-settings"
-  aso_configmap_key  = "aso-values.yaml"
 }
 
 data "azurerm_subscription" "current" {}

@@ -73,13 +73,3 @@ variable "aso_crd_pattern" {
 	default     = "resources.azure.com/*;cognitiveservices.azure.com/*;apimanagement.azure.com/*;managedidentity.azure.com/*;keyvault.azure.com/*"
 }
 
-variable "aso_chart_version" {
-  type        = string
-  description = <<-EOT
-	Helm chart version for Azure Service Operator v2 used by the Argo CD application.
-	Must correspond to a published package in the https://raw.githubusercontent.com/Azure/azure-service-operator/main/v2/charts repository.
-	Example: "2.15.0".
-	EOT
-  default     = "2.15.0"
-}
-

@@ -10,17 +10,17 @@ spec:
   destination:
     namespace: azureserviceoperator-system
     server: https://kubernetes.default.svc
-  source:
-    repoURL: https://raw.githubusercontent.com/Azure/azure-service-operator/main/v2/charts
-    chart: azure-service-operator
-    targetRevision: 2.15.0
-    helm:
-      releaseName: aso2
-      valuesFrom:
-        - configMapRef:
-            name: platform-bootstrap-settings
-            namespace: argocd
-            valuesKey: aso-values.yaml
+  sources:
+    - repoURL: https://github.com/tkubica12/d-ai-hybrid-oss-cloud.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://raw.githubusercontent.com/Azure/azure-service-operator/main/v2/charts
+      chart: azure-service-operator
+      targetRevision: 2.15.0
+      helm:
+        releaseName: aso2
+        valueFiles:
+          - $values/argocd/values/azure-service-operator.yaml
   syncPolicy:
     automated:
       prune: true

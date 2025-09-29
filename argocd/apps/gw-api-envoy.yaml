@@ -8,15 +8,17 @@ spec:
     namespace: envoy-gateway
     server: https://kubernetes.default.svc
   project: default
-  source:
-    repoURL: https://github.com/envoyproxy/gateway
-    targetRevision: main
-    path: charts/gateway-helm
-    helm:
-      values: |
-        envoyGateway:
-          provider:
-            type: Kubernetes
+  sources:
+    - repoURL: https://github.com/tkubica12/d-ai-hybrid-oss-cloud.git
+      targetRevision: main
+      ref: values
+    - repoURL: oci://registry-1.docker.io/envoyproxy/gateway-helm
+      chart: gateway-helm
+      targetRevision: v1.5.1
+      helm:
+        releaseName: envoy-gateway
+        valueFiles:
+          - $values/argocd/values/envoy-gateway.yaml
   syncPolicy:
     automated:
       prune: true

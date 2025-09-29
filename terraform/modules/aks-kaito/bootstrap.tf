@@ -5,7 +5,6 @@ locals {
     azureClientID           = azurerm_user_assigned_identity.aso.client_id
     useWorkloadIdentityAuth = true
     crdPattern              = var.aso_crd_pattern
-    asoChartVersion         = var.aso_chart_version
     serviceAccount = {
       annotations = {
         "azure.workload.identity/client-id" = azurerm_user_assigned_identity.aso.client_id
@@ -14,17 +13,14 @@ locals {
     }
   })
 
-  aso_configmap_manifest = trimspace(yamlencode({
-    apiVersion = "v1"
-    kind       = "ConfigMap"
-    metadata = {
-      name      = local.aso_configmap_name
-      namespace = local.argocd_namespace
-    }
-    data = {
-      (local.aso_configmap_key) = local.aso_controller_values
-    }
-  }))
+  aso_values_file_path = abspath("${path.root}/../argocd/values/azure-service-operator.yaml")
+}
+
+resource "local_file" "aso_values" {
+  count = local.argocd_bootstrap_enabled ? 1 : 0
+
+  filename = local.aso_values_file_path
+  content  = "${local.aso_controller_values}\n"
 }
 
 resource "azapi_resource_action" "argocd_bootstrap" {
@@ -43,9 +39,6 @@ resource "azapi_resource_action" "argocd_bootstrap" {
           "kubectl create namespace %s --dry-run=client -o yaml | kubectl apply -f -",
           local.argocd_namespace
         ),
-        "kubectl apply -f - <<'EOF'",
-        local.aso_configmap_manifest,
-        "EOF",
         format("kubectl apply -f %s", var.argocd_bootstrap_manifest_url)
       ]
     )
@@ -58,6 +51,7 @@ resource "azapi_resource_action" "argocd_bootstrap" {
   ]
 
   depends_on = [
-    azapi_resource.argocd_extension
+    azapi_resource.argocd_extension,
+    local_file.aso_values
   ]
 }

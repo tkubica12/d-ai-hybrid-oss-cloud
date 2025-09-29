@@ -20,6 +20,10 @@ terraform {
       source  = "hashicorp/tls"
       version = ">= 4"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = ">= 2"
+    }
   }
 }
 
@@ -41,4 +45,6 @@ provider "azuread" {}
 provider "random" {}
 
 provider "tls" {}
+
+provider "local" {}
 

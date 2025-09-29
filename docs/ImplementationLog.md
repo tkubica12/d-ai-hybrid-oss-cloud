@@ -191,3 +191,43 @@ Prevented Azure Service Operator from attempting to install all 250+ CRDs by tig
 
 Resolved Azure Service Operator deployment failing to read Terraform-provided settings:
 - Corrected the Argo CD Application to reference the ConfigMap data using `valuesKey`, enabling Helm to consume the generated `aso-values.yaml` (including CRD pattern and Azure identity fields).
+
+## Envoy Gateway Chart Vendor (Date: 2025-09-28)
+
+Eliminated Argo CD Helm fetch failures for Envoy Gateway by vendoring the chart:
+- Pulled `gateway-helm` v1.5.1 from the OCI registry and committed the unpacked chart under `charts/gateway-helm` for Git-based delivery.
+- Repointed the Argo CD Application to the in-repo chart path so the repo-server no longer issues unsupported OCI pull commands.
+- Kept the lightweight inline values to configure the Kubernetes provider without diverging from upstream defaults.
+
+## Envoy Gateway OCI Source (Date: 2025-09-29)
+
+Returned Envoy Gateway to the upstream distribution now that the repo-server can pull OCI charts directly:
+- Removed the vendored `charts/gateway-helm` directory in favor of referencing the public `oci://registry-1.docker.io/envoyproxy/gateway-helm` chart at `v1.5.1`.
+- Updated the Argo CD application to a multi-source definition that combines the upstream chart with Git-tracked overrides in `argocd/values/envoy-gateway.yaml`.
+- Added a dedicated values file under `argocd/values/` to keep configuration alongside the manifest while remaining consistent with the new GitOps pattern.
+
+## ASO CRD Pattern Patch (Date: 2025-09-28)
+
+Unblocked the Azure Service Operator controller crash loop caused by an empty `--crd-pattern` argument:
+- Replaced the unsupported `helm.valuesFrom` block in the Argo CD Application with an explicit Helm parameter that sets the semicolon-delimited CRD pattern while forcing string semantics.
+- Left the Terraform-managed ConfigMap in place for future consolidation, noting a follow-up to reconcile the two sources of truth.
+
+## ASO Helm Inline Values (Date: 2025-09-28)
+
+Stabilized the Azure Service Operator GitOps deployment after removing `valuesFrom` support:
+- Inlined the subscription, tenant, client ID, workload identity flag, CRD pattern, and service-account annotations directly in the Argo CD `helm.valuesObject` so Helm renders the chart with the required configuration.
+- Confirmed values match those generated in the bootstrap ConfigMap to keep workload identity credentials and CRD scope aligned until a dynamic hand-off is reintroduced.
+
+## ASO Helm Env Bridge (Date: 2025-09-28)
+
+Replaced the temporary inline Helm configuration with Terraform-driven environment variables to keep Git clean of sensitive IDs:
+- Switched the Argo CD Application for ASO to consume `$ARGOCD_ENV_*` placeholders so Helm resolves values supplied by the repo-server environment.
+- Extended the Terraform bootstrap module to export the ASO identity and config entries as environment variables via the `platform-bootstrap-settings` ConfigMap and repo-server `envFrom` patch.
+- Preserved the existing ConfigMap payload while ensuring terraform remains the single source of truth for workload identity parameters and CRD scope.
+
+## ASO GitOps Values Realignment (Date: 2025-09-29)
+
+Adopted a pure GitOps flow for Azure Service Operator runtime settings now that no secrets are required:
+- Removed the Terraform-managed ConfigMap and repo-server environment patch, simplifying the AKS bootstrap Run Command to only apply the Argo CD app-of-apps manifest.
+- Added a Terraform-managed `local_file` artifact that renders the ASO Helm values into `argocd/values/azure-service-operator.yaml` for manual commit and promotion through Git.
+- Converted the Argo CD application to a multi-source definition that pulls the remote Helm chart while loading the Git-stored values file, keeping configuration close to the manifests without runtime bridging.
