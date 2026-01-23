@@ -1,3 +1,6 @@
+# Azure subscription ID for ARM resource references
+subscriptionId: ""  # Set via ArgoCD application parameters
+
 resourceGroup:
   name: rg-foundry-ai
   location: swedencentral

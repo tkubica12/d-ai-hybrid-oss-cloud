@@ -9,7 +9,7 @@ spec:
   azureName: {{ .Values.apim.name | quote }}
   location: {{ .Values.apim.location | quote }}
   owner:
-    name: {{ include "ai-gateway.resourceGroupName" . | quote }}
+    armId: {{ include "ai-gateway.resourceGroupArmId" . | quote }}
   publisherEmail: {{ .Values.apim.publisherEmail | quote }}
   publisherName: {{ .Values.apim.publisherName | quote }}
   sku:

@@ -11,6 +11,10 @@ spec:
     repoURL: https://github.com/tkubica12/d-ai-hybrid-oss-cloud
     targetRevision: main
     path: charts/ai-gateway
+    helm:
+      parameters:
+        - name: subscriptionId
+          value: "673af34d-6b28-41dc-bc7b-f507418045e6"
   destination:
     server: https://kubernetes.default.svc
     namespace: ai-gateway
