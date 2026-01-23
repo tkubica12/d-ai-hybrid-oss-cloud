@@ -11,7 +11,7 @@ metadata:
   labels:
     {{- include "developer-access.labels" . | nindent 4 }}
 spec:
-  azureName: foundry-openai-api
+  azureName: {{ .Values.apim.openaiApiName | default "openai-api" }}
   owner:
     name: {{ include "developer-access.productName" . | quote }}
 {{- end }}

@@ -36,6 +36,7 @@ apim:
   name: ""              # Set via ArgoCD parameter (e.g., apim-hai-twej)
   resourceGroup: ""     # Set via ArgoCD parameter (e.g., rg-hai-twej)
   subscriptionId: ""    # Set via ArgoCD parameter
+  openaiApiName: "openai-api"  # Name of the OpenAI API in APIM
 
 # Foundry configuration (platform-provided via Terraform)
 foundry:
