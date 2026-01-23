@@ -51,3 +51,24 @@ module "aks_kaito" {
   }
   depends_on = [module.monitoring, module.networking]
 }
+
+module "ai_platform" {
+  source              = "./modules/ai-platform"
+  resource_group_name = azurerm_resource_group.main.name
+  resource_group_id   = azurerm_resource_group.main.id
+  location            = var.location
+  base_name           = local.base_name
+  tags = {
+    environment = "demo"
+  }
+  # Example model deployments - adjust as needed
+  foundry_models = [
+    # {
+    #   name       = "gpt-4o"
+    #   model_name = "gpt-4o"
+    #   version    = "2024-08-06"
+    #   sku_name   = "GlobalStandard"
+    #   capacity   = 10
+    # }
+  ]
+}

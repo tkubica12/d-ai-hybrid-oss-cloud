@@ -23,7 +23,7 @@ models:
   foundry:
     enabled: true
     models:
-      - gpt-4.1
+      - gpt-4o
   kaito:
     enabled: false
 
@@ -37,6 +37,7 @@ limits:
 When your request is merged, the following resources are provisioned:
 
 ### For Foundry Models:
+- **Foundry Project**: Per-team project for Playground access
 - **APIM Product**: Container for your API access
 - **APIM ProductPolicy**: Token rate limits and quotas
 - **APIM Subscription**: API keys for authentication
@@ -54,8 +55,8 @@ After your request is provisioned:
 # Get your primary API key
 kubectl get secret {team-name}-api-key -n developer-requests -o jsonpath='{.data.primary-key}' | base64 -d
 
-# Use with the AI Gateway endpoint
-curl https://apim-ai-hai-twej.azure-api.net/openai/deployments/gpt-4.1/chat/completions \
+# Use with the AI Gateway endpoint (update with your APIM name)
+curl https://apim-hai-twej.azure-api.net/openai/deployments/gpt-4o/chat/completions \
   -H "Content-Type: application/json" \
   -H "api-key: YOUR_API_KEY" \
   -d '{"messages": [{"role": "user", "content": "Hello!"}]}'
@@ -68,3 +69,15 @@ Simply update your `access.yaml` and submit a PR. Changes to limits, models, or 
 ## Deleting Your Access
 
 Remove your team folder and submit a PR. ArgoCD will automatically clean up all associated resources.
+
+## Architecture
+
+```
+Platform Team (Terraform)           Developer Self-Service (GitOps)
+┌────────────────────────────┐      ┌─────────────────────────────────┐
+│ APIM v2 Standard           │◄────►│ APIM Products per team          │
+│ Foundry Resource           │◄────►│ Foundry Projects per team       │
+│ Model Deployments          │      │ APIM Subscriptions (API keys)   │
+│ APIM API + Backend         │      │ KAITO Workspaces (OSS models)   │
+└────────────────────────────┘      └─────────────────────────────────┘
+```

@@ -11,7 +11,7 @@ models:
   foundry:
     enabled: true
     models:
-      - gpt-4.1
+      - gpt-4o
   kaito:
     enabled: false
     workspaces: []

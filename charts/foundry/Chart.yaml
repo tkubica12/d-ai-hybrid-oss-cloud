@@ -1,6 +1,0 @@
-apiVersion: v2
-name: foundry
-description: Azure Service Operator manifests for AI Foundry account provisioning
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

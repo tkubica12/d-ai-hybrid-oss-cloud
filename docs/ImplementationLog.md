@@ -292,3 +292,59 @@ Implemented GitOps-based AI Gateway infrastructure using Azure Service Operator 
 - API keys will be exported to `alpha-api-key` Kubernetes Secret
 - Add KAITO backend integration to APIM
 
+## AI Platform Terraform Module (Date: 2026-01-23)
+
+Restructured AI Gateway architecture to use Terraform for shared infrastructure while keeping GitOps for per-team resources:
+
+### Architecture Change
+Based on user feedback, moved shared components from GitOps (ASO) to Terraform:
+- **Terraform-managed (shared)**: APIM v2 Standard, Foundry AIServices, API definitions, Backends, Role Assignments
+- **GitOps-managed (per-team)**: Foundry Projects, APIM Products, ProductPolicies, Subscriptions, KAITO Workspaces
+
+### Why This Change
+- APIM v2 Standard tier provisions in ~1m20s (vs 30-40 min for Developer tier)
+- Shared infrastructure benefits from Terraform's plan/apply workflow and state management
+- Per-team resources suit self-service GitOps model via ApplicationSet
+
+### New Terraform Module: `terraform/modules/ai-platform/`
+Created comprehensive module with the following resources:
+
+| File | Resources |
+|------|-----------|
+| `main.tf` | Locals, random suffix, APIM lookup |
+| `foundry.tf` | AIServices account with SystemAssigned identity |
+| `apim.tf` | APIM v2 StandardV2, Backend, API, 3 Operations, Policy |
+| `rbac.tf` | APIM → Foundry role assignment (Cognitive Services OpenAI User) |
+| `variables.tf` | Module inputs |
+| `outputs.tf` | apim_name, apim_gateway_url, foundry_name, foundry_endpoint, openai_api_name |
+
+### Resources Deployed
+```
+apim-hai-twej         - APIM v2 StandardV2 (1m20s)
+af-hai-twej           - Azure AI Foundry AIServices (26s)
+foundry-backend       - APIM Backend → Foundry endpoint
+openai-api            - OpenAI-compatible API definition
+chat-completions      - POST /deployments/{deployment-id}/chat/completions
+completions           - POST /deployments/{deployment-id}/completions
+embeddings            - POST /deployments/{deployment-id}/embeddings
+policy                - API policy with managed identity auth
+Role Assignment       - APIM identity → Cognitive Services OpenAI User
+```
+
+### Outputs
+- `apim_gateway_url = "https://apim-hai-twej.azure-api.net"`
+- `foundry_endpoint = "https://af-hai-twej.cognitiveservices.azure.com/"`
+
+### GitOps Updates
+- Removed `argocd/apps/ai-gateway.yaml` and `argocd/apps/foundry-account.yaml`
+- Removed `charts/ai-gateway/` and `charts/foundry/` directories
+- Updated `charts/developer-access/` to reference Terraform-managed resources via parameters
+- Added `foundry-project.yaml` template for per-team project creation
+
+### Bug Fixes
+- **statisticsEnabled error**: AIServices kind doesn't support `apiProperties.statisticsEnabled` - removed the block from foundry.tf
+
+### Key Learnings
+1. APIM v2 Standard provisions dramatically faster than Developer tier
+2. azapi provider with ARM API versions enables latest features (v2 SKU, AIServices)
+3. Hybrid Terraform+GitOps works well: Terraform for platform, GitOps for tenants

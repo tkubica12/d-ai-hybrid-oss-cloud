@@ -1,0 +1,26 @@
+{{/*
+  Foundry Project - Per-team AI Foundry project
+  Creates a child project under the central Foundry Resource
+  This gives the team access to Playground, tracing, and evaluations
+*/}}
+{{- if .Values.models.foundry.enabled }}
+apiVersion: cognitiveservices.azure.com/v1api20250601
+kind: Account
+metadata:
+  name: {{ printf "project-%s" (include "developer-access.teamName" .) | quote }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "developer-access.labels" . | nindent 4 }}
+spec:
+  azureName: {{ printf "project-%s" (include "developer-access.teamName" .) | quote }}
+  location: {{ .Values.foundry.location | default "swedencentral" | quote }}
+  kind: "AIServices"
+  identity:
+    type: SystemAssigned
+  owner:
+    armId: {{ include "developer-access.foundryArmId" . | quote }}
+  sku:
+    name: "S0"
+  properties:
+    publicNetworkAccess: "Enabled"
+{{- end }}

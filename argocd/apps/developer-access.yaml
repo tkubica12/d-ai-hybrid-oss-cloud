@@ -29,8 +29,18 @@ spec:
           valueFiles:
             - '{{ printf "../../developer-requests/%s/access.yaml" .path.basename }}'
           parameters:
+            # Platform parameters - these match Terraform outputs
+            # Update these values after running terraform apply
             - name: apim.subscriptionId
               value: "673af34d-6b28-41dc-bc7b-f507418045e6"
+            - name: apim.resourceGroup
+              value: "rg-hai-twej"
+            - name: apim.name
+              value: "apim-hai-twej"
+            - name: foundry.resourceGroup
+              value: "rg-hai-twej"
+            - name: foundry.resourceName
+              value: "af-hai-twej"
       destination:
         server: https://kubernetes.default.svc
         namespace: developer-requests

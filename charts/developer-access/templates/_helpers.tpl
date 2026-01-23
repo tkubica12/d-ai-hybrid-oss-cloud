@@ -16,7 +16,12 @@ ai.contoso.com/cost-center: {{ .Values.team.costCenter | quote }}
 
 {{/* APIM Service ARM ID */}}
 {{- define "developer-access.apimArmId" -}}
-/subscriptions/{{ required "apim.subscriptionId is required" .Values.apim.subscriptionId }}/resourceGroups/{{ .Values.apim.resourceGroup }}/providers/Microsoft.ApiManagement/service/{{ .Values.apim.name }}
+/subscriptions/{{ required "apim.subscriptionId is required" .Values.apim.subscriptionId }}/resourceGroups/{{ required "apim.resourceGroup is required" .Values.apim.resourceGroup }}/providers/Microsoft.ApiManagement/service/{{ required "apim.name is required" .Values.apim.name }}
+{{- end }}
+
+{{/* Foundry Resource ARM ID */}}
+{{- define "developer-access.foundryArmId" -}}
+/subscriptions/{{ required "apim.subscriptionId is required" .Values.apim.subscriptionId }}/resourceGroups/{{ required "foundry.resourceGroup is required" .Values.foundry.resourceGroup }}/providers/Microsoft.CognitiveServices/accounts/{{ required "foundry.resourceName is required" .Values.foundry.resourceName }}
 {{- end }}
 
 {{/* Product name */}}
