@@ -183,25 +183,30 @@ resource "azapi_resource" "apim_api_policy" {
     properties = {
       format = "xml"
       value  = <<-XML
-        <policies>
-          <inbound>
-            <base />
-            <set-backend-service backend-id="foundry-backend" />
-            <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
-          </inbound>
-          <backend>
-            <base />
-          </backend>
-          <outbound>
-            <base />
-          </outbound>
-          <on-error>
-            <base />
-          </on-error>
-        </policies>
+<policies>
+    <inbound>
+        <base />
+        <set-backend-service backend-id="foundry-backend" />
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
       XML
     }
   }
 
   depends_on = [azapi_resource.apim_backend_foundry]
+
+  lifecycle {
+    # Ignore body changes to avoid constant diffs from Azure API normalization
+    ignore_changes = [body]
+  }
 }

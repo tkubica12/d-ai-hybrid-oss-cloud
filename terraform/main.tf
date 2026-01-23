@@ -61,14 +61,41 @@ module "ai_platform" {
   tags = {
     environment = "demo"
   }
-  # Example model deployments - adjust as needed
   foundry_models = [
-    # {
-    #   name       = "gpt-4o"
-    #   model_name = "gpt-4o"
-    #   version    = "2024-08-06"
-    #   sku_name   = "GlobalStandard"
-    #   capacity   = 10
-    # }
+    {
+      name       = "gpt-5-2"
+      model_name = "gpt-5.2"
+      version    = "2025-12-11"
+      sku_name   = "GlobalStandard"
+      capacity   = 100
+    },
+    {
+      name       = "gpt-5-mini"
+      model_name = "gpt-5-mini"
+      version    = "2025-08-07"
+      sku_name   = "GlobalStandard"
+      capacity   = 100
+    },
+    {
+      name       = "gpt-4-1"
+      model_name = "gpt-4.1"
+      version    = "2025-04-14"
+      sku_name   = "GlobalStandard"
+      capacity   = 100
+    },
+    {
+      name       = "gpt-4-1-mini"
+      model_name = "gpt-4.1-mini"
+      version    = "2025-04-14"
+      sku_name   = "GlobalStandard"
+      capacity   = 100
+    },
+    {
+      name       = "gpt-4-1-nano"
+      model_name = "gpt-4.1-nano"
+      version    = "2025-04-14"
+      sku_name   = "GlobalStandard"
+      capacity   = 100
+    }
   ]
 }
