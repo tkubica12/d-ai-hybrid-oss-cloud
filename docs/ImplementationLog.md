@@ -231,3 +231,17 @@ Adopted a pure GitOps flow for Azure Service Operator runtime settings now that 
 - Removed the Terraform-managed ConfigMap and repo-server environment patch, simplifying the AKS bootstrap Run Command to only apply the Argo CD app-of-apps manifest.
 - Added a Terraform-managed `local_file` artifact that renders the ASO Helm values into `argocd/values/azure-service-operator.yaml` for manual commit and promotion through Git.
 - Converted the Argo CD application to a multi-source definition that pulls the remote Helm chart while loading the Git-stored values file, keeping configuration close to the manifests without runtime bridging.
+
+## Envoy Gateway OCI Registry Fix (Date: 2026-01-23)
+
+Resolved Envoy Gateway Helm chart deployment failures in ArgoCD:
+- Multi-source Git reference with values file caused nil pointer errors due to Helm values structure mismatch with chart expectations.
+- Migrated to single-source OCI-based deployment using `registry-1.docker.io/envoyproxy` as repoURL with `gateway-helm` as chart name.
+- Removed external values file dependency since default chart values are sufficient for basic deployment.
+- ArgoCD now successfully deploys Envoy Gateway controller with all Gateway API CRDs registered.
+
+Technical notes:
+- ArgoCD OCI chart format requires `repoURL: registry-1.docker.io/<org>` with `chart: <chartname>` (not the full OCI URL).
+- The `cert-manager` and `envoy-gateway` apps show `OutOfSync` due to webhook configurations being dynamically modified by their controllers - this is expected and harmless since health status is `Healthy`.
+- GatewayClass resource must be created separately to enable Gateway provisioning with Envoy Gateway controller.
+

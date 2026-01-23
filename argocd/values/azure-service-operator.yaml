@@ -1,10 +1,10 @@
-"azureClientID": "8e27cd8b-1851-4638-b59a-a93e87098d9e"
+"azureClientID": "10762a14-21cb-40dd-86c1-774c9fa8a042"
 "azureSubscriptionID": "673af34d-6b28-41dc-bc7b-f507418045e6"
 "azureTenantID": "6ce4f237-667f-43f5-aafd-cbef954adf97"
 "crdPattern": "resources.azure.com/*;cognitiveservices.azure.com/*;apimanagement.azure.com/*;managedidentity.azure.com/*;keyvault.azure.com/*"
 "serviceAccount":
   "annotations":
-    "azure.workload.identity/client-id": "8e27cd8b-1851-4638-b59a-a93e87098d9e"
+    "azure.workload.identity/client-id": "10762a14-21cb-40dd-86c1-774c9fa8a042"
     "azure.workload.identity/use": "true"
 "useWorkloadIdentityAuth": true
 
