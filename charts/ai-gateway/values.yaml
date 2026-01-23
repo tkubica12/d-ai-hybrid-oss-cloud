@@ -8,7 +8,7 @@ apim:
   publisherEmail: admin@contoso.com
   publisherName: AI Platform Team
   sku:
-    name: BasicV2
+    name: Developer
     capacity: 1
 
 # Foundry backend configuration
