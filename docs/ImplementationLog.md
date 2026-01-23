@@ -276,10 +276,19 @@ Implemented GitOps-based AI Gateway infrastructure using Azure Service Operator 
 ### Status
 - ✅ Foundry Account (af-foundry-ai) - Successfully provisioned
 - 🔄 APIM Service (apim-ai-hai-twej) - Provisioning (~30-40 min)
-- ⏳ Developer Access chart - Pending
+- ✅ Developer Access chart - Created and tested
+- ✅ ApplicationSet - Created and generating applications
+
+### Current Deployment State
+- `access-team-alpha` ArgoCD Application - Created by ApplicationSet
+- Resources created in `developer-requests` namespace:
+  - Product: product-alpha (waiting for APIM)
+  - ProductPolicy: product-alpha-policy (waiting for Product)
+  - Subscription: subscription-alpha (waiting for APIM)
 
 ### Next Steps
-- Create `charts/developer-access/` for team-level Product, Subscription, and Policy resources
-- Create `developer-requests/` folder structure with ArgoCD ApplicationSet
+- Wait for APIM to finish provisioning (~30-40 min)
+- All dependent resources (Product, ProductPolicy, Subscription) will reconcile automatically
+- API keys will be exported to `alpha-api-key` Kubernetes Secret
 - Add KAITO backend integration to APIM
 
