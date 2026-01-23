@@ -24,10 +24,10 @@ models:
     #     matchLabels:
     #       apps: phi-4
 
-# Token rate limiting configuration
+# Rate limiting configuration
 limits:
-  tokensPerMinute: 5000        # TPM rate limit
-  dailyTokenQuota: 1000000     # Daily token quota
+  callsPerMinute: 100          # API calls per minute
+  dailyQuota: 10000            # Daily API call quota
   renewalPeriod: 86400         # Quota renewal period in seconds (24h)
 
 # APIM configuration (platform-provided via Terraform)

@@ -1,6 +1,6 @@
 {{/*
-  APIM ProductPolicy - Token rate limiting and quota enforcement
-  Uses llm-token-limit for per-minute limits and quota-by-key for daily quotas
+  APIM ProductPolicy - Rate limiting and quota enforcement
+  Uses rate-limit-by-key for per-minute limits and quota-by-key for quotas
 */}}
 apiVersion: apimanagement.azure.com/v1api20220801
 kind: ProductPolicy
@@ -18,16 +18,14 @@ spec:
     <policies>
       <inbound>
         <base />
-        <!-- Token rate limiting per minute -->
-        <llm-token-limit
-          tokens-per-minute="{{ .Values.limits.tokensPerMinute }}"
-          counter-key="@(context.Subscription.Id)"
-          estimate-prompt-tokens="true"
-          remaining-tokens-variable-name="remainingTokens" />
-        <!-- Daily token quota -->
+        <!-- Rate limiting per minute -->
+        <rate-limit-by-key
+          calls="{{ .Values.limits.callsPerMinute | default 100 }}"
+          renewal-period="60"
+          counter-key="@(context.Subscription.Id)" />
+        <!-- Daily quota -->
         <quota-by-key
-          calls="1000000"
-          bandwidth="1073741824"
+          calls="{{ .Values.limits.dailyQuota | default 10000 }}"
           renewal-period="{{ .Values.limits.renewalPeriod }}"
           counter-key="@(context.Subscription.Id)" />
       </inbound>
@@ -36,10 +34,6 @@ spec:
       </backend>
       <outbound>
         <base />
-        <!-- Add token usage headers for transparency -->
-        <set-header name="X-RateLimit-Remaining-Tokens" exists-action="override">
-          <value>@(context.Variables.GetValueOrDefault<int>("remainingTokens").ToString())</value>
-        </set-header>
       </outbound>
       <on-error>
         <base />
