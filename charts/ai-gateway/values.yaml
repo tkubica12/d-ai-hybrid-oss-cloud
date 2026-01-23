@@ -1,0 +1,22 @@
+resourceGroup:
+  name: rg-foundry-ai
+  location: swedencentral
+
+apim:
+  name: apim-ai-gateway
+  location: swedencentral
+  publisherEmail: admin@contoso.com
+  publisherName: AI Platform Team
+  sku:
+    name: BasicV2
+    capacity: 1
+
+# Foundry backend configuration
+foundry:
+  resourceName: af-foundry-ai
+  endpoint: "https://af-foundry-ai.services.ai.azure.com"
+
+# KAITO backend configuration (internal cluster service)
+kaito:
+  enabled: true
+  # Service endpoint will be constructed per workspace

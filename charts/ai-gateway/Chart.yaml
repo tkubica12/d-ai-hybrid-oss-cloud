@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ai-gateway
+description: Azure API Management instance configured as AI Gateway for Foundry and KAITO models
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
