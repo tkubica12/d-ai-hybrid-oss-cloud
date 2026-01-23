@@ -1,6 +1,3 @@
-config:
-  envoyGateway:
-    gateway:
-      controllerName: gateway.envoyproxy.io/gatewayclass-controller
-    provider:
-      type: Kubernetes
+# Envoy Gateway Helm values
+# Using defaults - no overrides needed
+{}
