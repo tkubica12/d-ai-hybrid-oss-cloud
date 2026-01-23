@@ -1,5 +1,5 @@
 # API definition for Foundry models (OpenAI-compatible)
-apiVersion: apimanagement.azure.com/v1api20240501
+apiVersion: apimanagement.azure.com/v1api20220801
 kind: Api
 metadata:
   name: foundry-openai-api

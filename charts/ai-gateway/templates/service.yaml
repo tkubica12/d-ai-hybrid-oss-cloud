@@ -1,4 +1,4 @@
-apiVersion: apimanagement.azure.com/v1api20240501
+apiVersion: apimanagement.azure.com/v1api20220801
 kind: Service
 metadata:
   name: {{ .Values.apim.name | quote }}
