@@ -343,8 +343,19 @@ Role Assignment       - APIM identity → Cognitive Services OpenAI User
 
 ### Bug Fixes
 - **statisticsEnabled error**: AIServices kind doesn't support `apiProperties.statisticsEnabled` - removed the block from foundry.tf
+- **OpenAI API name mismatch**: ProductApi referenced `foundry-openai-api` but Terraform creates `openai-api` - made configurable via values
+- **ProductPolicy llm-token-limit**: APIM policy validation failed with llm-token-limit - simplified to use standard `rate-limit-by-key` and `quota-by-key` policies
 
 ### Key Learnings
 1. APIM v2 Standard provisions dramatically faster than Developer tier
 2. azapi provider with ARM API versions enables latest features (v2 SKU, AIServices)
 3. Hybrid Terraform+GitOps works well: Terraform for platform, GitOps for tenants
+4. ASO doesn't allow updating `owner.armId` - resources must be deleted and recreated when owners change
+5. ArgoCD may cache old revisions - use `argocd.argoproj.io/refresh=hard` annotation to force refresh
+
+### Final State
+All per-team resources successfully deployed via GitOps:
+- ✅ Product: `product-alpha` - APIM product with approval required
+- ✅ Subscription: `subscription-alpha` - API key exported to `alpha-api-key` secret
+- ✅ ProductApi: `product-alpha-foundry-api` - Links product to OpenAI API
+- ✅ ProductPolicy: `product-alpha-policy` - Rate limiting (100 calls/min, 10K daily quota)
