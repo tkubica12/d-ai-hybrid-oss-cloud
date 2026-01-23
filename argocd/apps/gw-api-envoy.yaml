@@ -9,7 +9,7 @@ spec:
     server: https://kubernetes.default.svc
   project: default
   source:
-    repoURL: docker.io/envoyproxy/gateway-helm
+    repoURL: registry-1.docker.io/envoyproxy
     targetRevision: v1.5.1
     chart: gateway-helm
     helm:
