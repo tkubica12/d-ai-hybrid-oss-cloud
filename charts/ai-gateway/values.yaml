@@ -6,7 +6,7 @@ resourceGroup:
   location: swedencentral
 
 apim:
-  name: apim-ai-gateway
+  name: apim-ai-hai-twej
   location: swedencentral
   publisherEmail: admin@contoso.com
   publisherName: AI Platform Team
