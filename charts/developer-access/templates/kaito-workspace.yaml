@@ -1,0 +1,31 @@
+{{/*
+  KAITO Workspaces - Dedicated GPU compute for open-source models
+  Created only when kaito.enabled is true and workspaces are defined
+*/}}
+{{- if and .Values.models.kaito.enabled .Values.models.kaito.workspaces }}
+{{- range .Values.models.kaito.workspaces }}
+---
+apiVersion: kaito.sh/v1beta1
+kind: Workspace
+metadata:
+  name: {{ printf "%s-%s" $.Values.team.name .name | quote }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "developer-access.labels" $ | nindent 4 }}
+    ai.contoso.com/model: {{ .name | quote }}
+spec:
+  resource:
+    instanceType: {{ .instanceType | quote }}
+    {{- if .labelSelector }}
+    labelSelector:
+      {{- toYaml .labelSelector | nindent 6 }}
+    {{- else }}
+    labelSelector:
+      matchLabels:
+        apps: {{ .name | quote }}
+    {{- end }}
+  inference:
+    preset:
+      name: {{ .name | quote }}
+{{- end }}
+{{- end }}

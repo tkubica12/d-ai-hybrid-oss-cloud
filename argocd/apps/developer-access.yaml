@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: developer-access
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/tkubica12/d-ai-hybrid-oss-cloud
+        revision: main
+        directories:
+          - path: developer-requests/*
+  template:
+    metadata:
+      name: 'access-{{ .path.basename }}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/managed-by: argocd-applicationset
+        ai.contoso.com/access-type: developer
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/tkubica12/d-ai-hybrid-oss-cloud
+        targetRevision: main
+        path: charts/developer-access
+        helm:
+          valueFiles:
+            - '{{ printf "../../developer-requests/%s/access.yaml" .path.basename }}'
+          parameters:
+            - name: apim.subscriptionId
+              value: "673af34d-6b28-41dc-bc7b-f507418045e6"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: developer-requests
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

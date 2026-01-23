@@ -1,0 +1,17 @@
+{{/*
+  APIM ProductApi - Links the Product to the Foundry OpenAI API
+  This gives the team access to call the AI models through their subscription
+*/}}
+{{- if .Values.models.foundry.enabled }}
+apiVersion: apimanagement.azure.com/v1api20220801
+kind: ProductApi
+metadata:
+  name: {{ printf "%s-foundry-api" (include "developer-access.productName" .) | quote }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "developer-access.labels" . | nindent 4 }}
+spec:
+  azureName: foundry-openai-api
+  owner:
+    name: {{ include "developer-access.productName" . | quote }}
+{{- end }}

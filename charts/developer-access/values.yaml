@@ -1,0 +1,43 @@
+# Team configuration
+team:
+  name: ""           # Required: team name (e.g., "alpha")
+  displayName: ""    # Optional: display name for APIM product
+  owner: ""          # Required: team owner email
+  costCenter: ""     # Optional: cost center for billing
+
+# Model access configuration
+models:
+  foundry:
+    enabled: true
+    # List of Foundry models to enable access for
+    # These must exist in the central Foundry resource
+    models:
+      - gpt-4.1
+  kaito:
+    enabled: false
+    # KAITO workspace configuration (creates dedicated GPU compute)
+    workspaces: []
+    # Example:
+    # - name: phi-4
+    #   instanceType: Standard_NC24ads_A100_v4
+    #   labelSelector:
+    #     matchLabels:
+    #       apps: phi-4
+
+# Token rate limiting configuration
+limits:
+  tokensPerMinute: 5000        # TPM rate limit
+  dailyTokenQuota: 1000000     # Daily token quota
+  renewalPeriod: 86400         # Quota renewal period in seconds (24h)
+
+# APIM configuration (platform-provided)
+apim:
+  name: apim-ai-hai-twej
+  resourceGroup: rg-foundry-ai
+  subscriptionId: ""           # Set via ArgoCD parameter
+
+# Foundry configuration (platform-provided)
+foundry:
+  resourceName: af-foundry-ai
+  resourceGroup: rg-foundry-ai
+  endpoint: "https://af-foundry-ai.services.ai.azure.com"

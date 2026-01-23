@@ -245,3 +245,41 @@ Technical notes:
 - The `cert-manager` and `envoy-gateway` apps show `OutOfSync` due to webhook configurations being dynamically modified by their controllers - this is expected and harmless since health status is `Healthy`.
 - GatewayClass resource must be created separately to enable Gateway provisioning with Envoy Gateway controller.
 
+## AI Gateway GitOps Implementation (Date: 2026-01-23)
+
+Implemented GitOps-based AI Gateway infrastructure using Azure Service Operator v2:
+
+### Architecture Design
+- Created comprehensive design document at `docs/GITOPS_DESIGN.md` outlining developer self-service model access architecture.
+- Central model management: Foundry hosts centralized model deployments (gpt-4.1, gpt-5.2) accessible by multiple teams.
+- APIM as AI Gateway: Provides token rate limiting via `llm-token-limit` and quota management via `quota-by-key` policies.
+- Per-team isolation: APIM Products + Subscriptions provide isolated API keys and quota limits per team.
+
+### Charts Created
+1. **charts/ai-gateway/** - APIM infrastructure chart:
+   - `templates/service.yaml` - APIM Service using v1api20220801 with Developer SKU
+   - `templates/backend-foundry.yaml` - Backend pointing to Foundry endpoint
+   - `templates/api-foundry.yaml` - OpenAI-compatible API definition
+
+2. **charts/foundry/** - Enhanced to support AIServices account creation via ASO
+
+### ArgoCD Applications
+- `argocd/apps/ai-gateway.yaml` - Deploys APIM infrastructure with subscription ID parameter
+- `argocd/apps/foundry-account.yaml` - Deploys Foundry AIServices account
+
+### Technical Fixes Applied
+1. **API Version Mismatch**: Changed APIM resources from v1api20240501 to v1api20220801 (installed ASO version)
+2. **SKU Validation**: Changed from "BasicV2" (unsupported in older API) to "Developer"
+3. **Owner Reference**: Changed from `owner.name` to `owner.armId` for cross-namespace ResourceGroup reference
+4. **APIM Name Conflict**: Added unique suffix to avoid global naming collision
+
+### Status
+- ✅ Foundry Account (af-foundry-ai) - Successfully provisioned
+- 🔄 APIM Service (apim-ai-hai-twej) - Provisioning (~30-40 min)
+- ⏳ Developer Access chart - Pending
+
+### Next Steps
+- Create `charts/developer-access/` for team-level Product, Subscription, and Policy resources
+- Create `developer-requests/` folder structure with ArgoCD ApplicationSet
+- Add KAITO backend integration to APIM
+

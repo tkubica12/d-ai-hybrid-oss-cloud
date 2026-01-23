@@ -1,0 +1,22 @@
+# Team Alpha access configuration
+# This file defines AI model access for Team Alpha
+
+team:
+  name: alpha
+  displayName: "AI Access - Team Alpha"
+  owner: alpha-lead@contoso.com
+  costCenter: CC-12345
+
+models:
+  foundry:
+    enabled: true
+    models:
+      - gpt-4.1
+  kaito:
+    enabled: false
+    workspaces: []
+
+limits:
+  tokensPerMinute: 5000
+  dailyTokenQuota: 1000000
+  renewalPeriod: 86400

@@ -1,0 +1,21 @@
+{{/*
+  APIM Product - Provides a container for the team's API access
+  Each team gets their own Product with associated policies and subscriptions
+*/}}
+apiVersion: apimanagement.azure.com/v1api20220801
+kind: Product
+metadata:
+  name: {{ include "developer-access.productName" . | quote }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "developer-access.labels" . | nindent 4 }}
+spec:
+  azureName: {{ include "developer-access.productName" . | quote }}
+  owner:
+    armId: {{ include "developer-access.apimArmId" . | quote }}
+  displayName: {{ .Values.team.displayName | default (printf "AI Access - Team %s" .Values.team.name) | quote }}
+  description: {{ printf "AI model access for team %s" .Values.team.name | quote }}
+  state: published
+  subscriptionRequired: true
+  approvalRequired: false
+  subscriptionsLimit: 5

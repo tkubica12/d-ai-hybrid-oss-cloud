@@ -1,0 +1,27 @@
+{{/*
+  APIM Subscription - API key for the team
+  The subscription key is exported to a Kubernetes Secret for team access
+*/}}
+apiVersion: apimanagement.azure.com/v1api20220801
+kind: Subscription
+metadata:
+  name: {{ include "developer-access.subscriptionName" . | quote }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "developer-access.labels" . | nindent 4 }}
+spec:
+  azureName: {{ include "developer-access.subscriptionName" . | quote }}
+  owner:
+    armId: {{ include "developer-access.apimArmId" . | quote }}
+  displayName: {{ printf "Team %s Subscription" .Values.team.name | quote }}
+  scope: {{ printf "%s/products/%s" (include "developer-access.apimArmId" .) (include "developer-access.productName" .) | quote }}
+  state: active
+  allowTracing: true
+  operatorSpec:
+    secrets:
+      primaryKey:
+        name: {{ printf "%s-api-key" .Values.team.name | quote }}
+        key: primary-key
+      secondaryKey:
+        name: {{ printf "%s-api-key" .Values.team.name | quote }}
+        key: secondary-key
