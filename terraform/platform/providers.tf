@@ -4,7 +4,7 @@ terraform {
   required_providers {
     azapi = {
       source  = "azure/azapi"
-      version = ">= 2"
+      version = "= 2.7.0"  # Pinned to 2.7.0 - v2.8.0 has bug causing "Missing Resource Identity After Read" errors
     }
     azurerm = {
       source  = "hashicorp/azurerm"

@@ -63,7 +63,7 @@ module "ai_platform" {
   }
   foundry_models = [
     {
-      name       = "gpt-5-2"
+      name       = "gpt-5.2"
       model_name = "gpt-5.2"
       version    = "2025-12-11"
       sku_name   = "GlobalStandard"
@@ -77,21 +77,21 @@ module "ai_platform" {
       capacity   = 100
     },
     {
-      name       = "gpt-4-1"
+      name       = "gpt-4.1"
       model_name = "gpt-4.1"
       version    = "2025-04-14"
       sku_name   = "GlobalStandard"
       capacity   = 100
     },
     {
-      name       = "gpt-4-1-mini"
+      name       = "gpt-4.1-mini"
       model_name = "gpt-4.1-mini"
       version    = "2025-04-14"
       sku_name   = "GlobalStandard"
       capacity   = 100
     },
     {
-      name       = "gpt-4-1-nano"
+      name       = "gpt-4.1-nano"
       model_name = "gpt-4.1-nano"
       version    = "2025-04-14"
       sku_name   = "GlobalStandard"

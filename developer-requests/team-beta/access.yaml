@@ -1,0 +1,24 @@
+# Team Beta access configuration
+# This file defines AI model access for Team Beta
+
+team:
+  name: beta
+  displayName: "AI Access - Team Beta"
+  owner: beta-lead@contoso.com
+  costCenter: CC-67890
+
+models:
+  foundry:
+    enabled: true
+    models:
+      - gpt-4.1
+      - gpt-5.2
+  kaito:
+    enabled: true
+    workspaces:
+      - name: mistral-7b-instruct
+        instanceType: Standard_NC24ads_A100_v4
+
+limits:
+  tokensPerMinute: 50000
+  dailyTokenQuota: 2000000

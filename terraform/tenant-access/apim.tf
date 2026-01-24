@@ -21,18 +21,16 @@ resource "azapi_resource" "apim_product" {
 }
 
 # Associate OpenAI API with each team's product
-resource "azapi_resource" "apim_product_api" {
+# Using azurerm resource as it supports proper lifecycle management
+resource "azurerm_api_management_product_api" "openai" {
   for_each = local.teams
 
-  type      = "Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview"
-  name      = "link-${local.platform.openai_api_name}"
-  parent_id = azapi_resource.apim_product[each.key].id
+  api_name            = local.platform.openai_api_name
+  product_id          = "product-${each.value.name}"
+  api_management_name = local.platform.apim_name
+  resource_group_name = local.platform.resource_group_name
 
-  body = {
-    properties = {
-      apiId = "${local.platform.apim_id}/apis/${local.platform.openai_api_name}"
-    }
-  }
+  depends_on = [azapi_resource.apim_product]
 }
 
 # Product Policy with LLM token-based rate limiting

@@ -13,19 +13,18 @@ metadata:
   labels:
     {{- include "developer-access.labels" $ | nindent 4 }}
     ai.contoso.com/model: {{ .name | quote }}
-spec:
-  resource:
-    instanceType: {{ .instanceType | quote }}
-    {{- if .labelSelector }}
-    labelSelector:
-      {{- toYaml .labelSelector | nindent 6 }}
-    {{- else }}
-    labelSelector:
-      matchLabels:
-        apps: {{ .name | quote }}
-    {{- end }}
-  inference:
-    preset:
-      name: {{ .name | quote }}
+resource:
+  instanceType: {{ .instanceType | quote }}
+  {{- if .labelSelector }}
+  labelSelector:
+    {{- toYaml .labelSelector | nindent 4 }}
+  {{- else }}
+  labelSelector:
+    matchLabels:
+      apps: {{ .name | quote }}
+  {{- end }}
+inference:
+  preset:
+    name: {{ .name | quote }}
 {{- end }}
 {{- end }}

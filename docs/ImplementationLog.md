@@ -1,5 +1,70 @@
 # Implementation Log
 
+## Per-Team Foundry Resources Architecture (Date: 2026-01-24)
+
+Refactored tenant-access module to provision a dedicated Foundry resource per team instead of projects under a shared Foundry resource.
+
+### Problem Statement
+- Non-default projects in Azure AI Foundry are only visible in the classic portal
+- The new Foundry portal displays only the default project for each Foundry resource
+- Teams alpha and beta could not see their projects in the new portal
+
+### Solution Implemented
+Changed architecture from:
+- 1 shared Foundry resource → N projects (one per team)
+
+To:
+- N Foundry resources (one per team) → Each with a default project (`isDefault=true`)
+
+### Changes Made
+1. **New Foundry resource per team** (`foundry-alpha`, `foundry-beta`)
+   - Each with `allowProjectManagement=true`
+   - Unique custom subdomain using team name + hash
+   
+2. **Default project in each team's resource**
+   - Named "default" with `isDefault=true`
+   - Visible in the new Foundry portal
+   
+3. **APIM connection preserved**
+   - Each team's project has an `ApiManagement` connection
+   - Points to shared APIM gateway with team's subscription key
+   - Enables playground access through APIM with rate limiting
+
+### Architecture Flow
+```
+Centralized Foundry (af-hai-twej)
+    └── Model Deployments (gpt-4.1, etc.)
+            ↑
+            │ (managed identity auth)
+APIM Gateway (apim-hai-twej)
+    ├── product-alpha (rate limits, subscription key)
+    └── product-beta (rate limits, subscription key)
+            ↑
+            │ (APIM connections)
+    ├── foundry-alpha/default ← Team Alpha (visible in new portal)
+    └── foundry-beta/default  ← Team Beta (visible in new portal)
+```
+
+### Benefits
+- Teams see their project in the new Foundry portal
+- Playground works through APIM with proper rate limiting
+- Better cost tracking per team (separate resources)
+- Maintains centralized model deployment strategy
+
+### Resources Created
+| Resource | Type | Purpose |
+|----------|------|---------|
+| `foundry-alpha` | AIServices | Team Alpha's Foundry resource |
+| `foundry-beta` | AIServices | Team Beta's Foundry resource |
+| `foundry-*/default` | Project | Default project per team |
+| `apim-*` | Connection | APIM gateway connection per project |
+
+### Outputs Updated
+Added new fields to team output:
+- `foundry_resource` - Team's Foundry resource name
+- `foundry_endpoint` - Team's Foundry endpoint URL
+- `apim_connection` - APIM connection name in project
+
 ## Networking Module (Date: 2025-09-22)
 
 Implemented Terraform networking module providing:
@@ -550,3 +615,129 @@ terraform apply  # 5 resources destroyed in ~17 minutes
 | ArgoCD | **Removed** |
 | Azure Service Operator | **Removed** |
 
+## APIM Product-API Link Fix (Date: 2025-09-28)
+
+Resolved Terraform issues with APIM product-API associations:
+
+### Problem
+- Original implementation used `azapi_resource` with `Microsoft.ApiManagement/service/products/apiLinks` resource type
+- This resource type exhibited inconsistent behavior:
+  1. Failed with 409 Conflict when creating even though resource didn't exist
+  2. Import not supported (`Resource ImportState method returned no State in response`)
+  3. GET method returns 405 Method Not Allowed, breaking Terraform refresh
+  
+### Solution
+Switched to `azurerm_api_management_product_api` resource which:
+- Uses the older `products/{productId}/apis/{apiId}` endpoint under the hood
+- Properly supports CRUD operations and state import
+- Works reliably with Terraform lifecycle
+
+### Changes Made
+- Updated [apim.tf](../terraform/tenant-access/apim.tf) to use `azurerm_api_management_product_api.openai` instead of `azapi_resource.apim_product_api`
+- Imported existing resources into Terraform state for both team-alpha and team-beta
+- Verified `terraform plan` shows no changes (state in sync)
+
+### Lesson Learned
+The `apiLinks` resource type in Azure APIM (introduced in 2024-06-01-preview) has provider compatibility issues. The older `products/{productId}/apis/{apiId}` pattern via azurerm is more reliable for Terraform management.
+
+## KAITO Workspace & Foundry APIM Connection Implementation (Date: 2026-01-24)
+
+Implemented the missing tenant-access functionality for KAITO workspace deployment and Foundry project model connections.
+
+### Problem Statement
+1. **KAITO Workspaces**: Developer requests for open-source models via KAITO were defined in YAML but not deployed
+2. **Foundry Projects Empty**: Projects were created but had no model connections - developers couldn't use playground
+
+### Solution
+
+#### KAITO Workspace Deployment
+Replaced the unnecessary Kubernetes namespace/secret resources with KAITO workspace deployment:
+
+| Before | After |
+|--------|-------|
+| `kubernetes_namespace_v1.team` | **Removed** - not needed for model access |
+| `kubernetes_secret_v1.ai_credentials` | **Removed** - credentials via Foundry connection |
+| N/A | `helm_release.kaito_workspace` - Deploys KAITO Workspace CRDs |
+
+The helm_release deploys the existing `charts/developer-access` chart which contains the KAITO Workspace template.
+
+#### Foundry APIM Connection
+Added `azapi_resource.foundry_apim_connection` to create APIM gateway connections in each Foundry project:
+
+```hcl
+resource "azapi_resource" "foundry_apim_connection" {
+  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  name      = "apim-${team_name}"
+  parent_id = foundry_project_id
+  body = {
+    properties = {
+      category      = "ApiManagement"
+      target        = "${apim_gateway_url}/openai"
+      authType      = "ApiKey"
+      isSharedToAll = true
+      credentials   = { key = apim_subscription_key }
+      metadata = {
+        deploymentInPath    = "true"
+        inferenceAPIVersion = "2024-10-21"
+        models              = jsonencode([...])  # Static list from team config
+      }
+    }
+  }
+}
+```
+
+Benefits:
+- Developers see their allowed models in Foundry playground
+- All requests go through APIM with token rate limiting
+- Unique connection names per project (`apim-alpha`, `apim-beta`)
+
+### Technical Fixes
+
+1. **KAITO v1beta1 Schema Change**: The Workspace CRD moved `resource` and `inference` to top-level (not under `spec`)
+   - Updated `charts/developer-access/templates/kaito-workspace.yaml` to match
+   
+2. **Helm Provider 3.x Syntax**: Updated `providers.tf` to use assignment syntax for `kubernetes = {}`
+
+3. **Connection Name Uniqueness**: Changed from `apim-gateway` (global conflict) to `apim-{team_name}` per project
+
+### Developer Request Format
+KAITO workspaces are enabled per-team in the YAML:
+
+```yaml
+# developer-requests/team-beta/access.yaml
+models:
+  kaito:
+    enabled: true
+    workspaces:
+      - name: mistral-7b-instruct
+        instanceType: Standard_NC6s_v3
+```
+
+### Verification
+
+```bash
+# KAITO Workspace deployed
+kubectl get workspace -n default
+# NAME                       INSTANCE           AGE
+# beta-mistral-7b-instruct   Standard_NC6s_v3   1m
+
+# Foundry connections created
+az rest --method GET --uri ".../projects/project-alpha/connections"
+# apim-alpha connection with target https://apim-hai-twej.azure-api.net/openai
+```
+
+### Outputs Updated
+Updated `outputs.tf` to show KAITO workspaces per team:
+
+```hcl
+output "teams" {
+  value = {
+    team-alpha = {
+      kaito_workspaces = []  # No KAITO models requested
+    }
+    team-beta = {
+      kaito_workspaces = ["mistral-7b-instruct"]  # KAITO model deployed
+    }
+  }
+}
+```
