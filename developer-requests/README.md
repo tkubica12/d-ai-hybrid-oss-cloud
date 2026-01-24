@@ -37,11 +37,13 @@ limits:
 When your request is merged, the following resources are provisioned:
 
 ### For Foundry Models:
-- **Foundry Project**: Per-team project for Playground access
 - **APIM Product**: Container for your API access
-- **APIM ProductPolicy**: Token rate limits and quotas
+- **APIM ProductPolicy**: Token-based rate limits and daily quotas (using `llm-token-limit` policy)
 - **APIM Subscription**: API keys for authentication
 - **Kubernetes Secret**: Contains your API keys (`{team-name}-api-key`)
+
+> **Note**: Foundry Projects for Playground access are not yet supported via GitOps. 
+> Projects must be created manually via Azure Portal or CLI until Azure Service Operator adds support.
 
 ### For KAITO Models (if enabled):
 - **KAITO Workspace**: Dedicated GPU compute for the model

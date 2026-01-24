@@ -11,12 +11,11 @@ models:
   foundry:
     enabled: true
     models:
-      - gpt-4o
+      - gpt-4.1
   kaito:
     enabled: false
     workspaces: []
 
 limits:
-  tokensPerMinute: 5000
+  tokensPerMinute: 10000
   dailyTokenQuota: 1000000
-  renewalPeriod: 86400

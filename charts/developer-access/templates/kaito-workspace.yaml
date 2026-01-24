@@ -2,8 +2,8 @@
   KAITO Workspaces - Dedicated GPU compute for open-source models
   Created only when kaito.enabled is true and workspaces are defined
 */}}
-{{- if and .Values.models.kaito.enabled .Values.models.kaito.workspaces }}
-{{- range .Values.models.kaito.workspaces }}
+{{- if and .Values.kaito.enabled .Values.kaito.workspaces }}
+{{- range .Values.kaito.workspaces }}
 ---
 apiVersion: kaito.sh/v1beta1
 kind: Workspace

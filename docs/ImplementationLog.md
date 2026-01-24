@@ -358,4 +358,195 @@ All per-team resources successfully deployed via GitOps:
 - ✅ Product: `product-alpha` - APIM product with approval required
 - ✅ Subscription: `subscription-alpha` - API key exported to `alpha-api-key` secret
 - ✅ ProductApi: `product-alpha-foundry-api` - Links product to OpenAI API
-- ✅ ProductPolicy: `product-alpha-policy` - Rate limiting (100 calls/min, 10K daily quota)
+- ✅ ProductPolicy: `product-alpha-policy` - Token-based rate limiting (5K tokens/min, 100K daily quota)
+
+## APIM Policy Improvement & Foundry Project Limitation (Date: 2026-01-24)
+
+### Token-Based Rate Limiting
+Replaced call-based rate limiting with token-based limiting using the `llm-token-limit` APIM policy:
+- Changed from `rate-limit-by-key` + `quota-by-key` (call-based) to `llm-token-limit` (token-based)
+- Removed `renewalPeriod` parameter since daily quota implies `Daily` period
+- Updated limits to use `tokensPerMinute` and `dailyTokenQuota`
+- Added response headers: `x-ratelimit-remaining-tokens`, `x-quota-remaining-tokens`, `x-tokens-consumed`
+
+Benefits:
+- LLM APIs consumption measured in tokens, not calls - more accurate billing/quota enforcement
+- Built-in prompt token estimation (`estimate-prompt-tokens="true"`)
+- Daily quota resets automatically at UTC day boundary
+
+### Foundry Project Limitation
+Discovered that Azure Service Operator (ASO) does not support the `Microsoft.CognitiveServices/accounts/projects` resource type:
+- ASO only has `Account` and `Deployment` for CognitiveServices (v1api20250601)
+- Attempting to create an Account with owner pointing to another Account fails with validation error
+- Commented out the foundry-project.yaml template until ASO adds support
+- Documented workaround: create projects manually via Azure CLI
+
+Workaround for teams needing Playground access:
+```bash
+az cognitiveservices account project create \
+  --name <foundry-resource-name> \
+  --resource-group <resource-group> \
+  --project-name project-<team-name> \
+  --location <location>
+```
+
+Track ASO support at: https://github.com/Azure/azure-service-operator/issues
+
+## Full Terraform Migration - ArgoCD/ASO to Pure Terraform (Date: 2026-01-24)
+
+### Architecture Change
+Migrated from hybrid ArgoCD/ASO approach to pure Terraform-based tenant provisioning:
+- **Old approach**: ArgoCD ApplicationSet + Azure Service Operator for per-team resources
+- **New approach**: Terraform tenant-access state reads YAML files and provisions all resources
+
+### New Terraform Structure
+Split Terraform into two separate states for separation of concerns:
+
+```
+terraform/
+├── platform/           # Core infrastructure (run by platform team)
+│   ├── main.tf        # Module orchestration
+│   ├── providers.tf   # azapi, azurerm providers
+│   ├── variables.tf   # prefix, location, subscription_id
+│   ├── locals.tf      # Naming conventions
+│   ├── outputs.tf     # Exports for tenant-access
+│   └── modules/       # Copied from original terraform/modules
+│
+└── tenant-access/      # Per-team resources (run separately)
+    ├── providers.tf   # Azure + Kubernetes + Helm providers
+    ├── variables.tf   # platform_state_path, developer_requests_path
+    ├── data.tf        # Remote state + AKS data source
+    ├── locals.tf      # Parse developer-requests YAML files
+    ├── apim.tf        # Products, policies, subscriptions
+    ├── apim_keys.tf   # Data source for subscription secrets
+    ├── foundry.tf     # Foundry projects per team
+    ├── kubernetes.tf  # Namespaces and secrets
+    └── outputs.tf     # Team info and API keys
+```
+
+### Developer Requests Format
+Kept the same YAML-based self-service model:
+```yaml
+# developer-requests/team-alpha/access.yaml
+apiVersion: ai.contoso.com/v1
+kind: TeamAccessRequest
+metadata:
+  name: team-alpha
+spec:
+  owner: alpha-lead@contoso.com
+  costCenter: CC-12345
+  models:
+    - type: azure-openai
+      limits:
+        tokensPerMinute: 50000
+        dailyTokenQuota: 1000000
+```
+
+### Resources Created Per Team
+| Resource Type | Resource Name | Description |
+|--------------|---------------|-------------|
+| APIM Product | `product-{team}` | Published product with approval required |
+| APIM Policy | Token-based limits | `llm-token-limit` policy |
+| APIM API Link | `link-openai-api` | Links product to OpenAI API |
+| APIM Subscription | `sub-{team}` | Auto-approved subscription |
+| Foundry Project | `project-{team}` | Team workspace in Azure AI Foundry |
+| K8s Namespace | `team-{name}` | With owner/cost-center annotations |
+| K8s Secret | `ai-gateway-credentials` | APIM gateway URL and API key |
+
+### Key Technical Decisions
+
+1. **State Bridging**: `terraform_remote_state` connects tenant-access to platform outputs
+2. **azapi for APIM**: Using API version `2024-06-01-preview` for `llm-token-limit` policy support
+3. **azapi for Foundry Projects**: CognitiveServices API version `2025-06-01` for project resources
+4. **Kubernetes Auth**: Client certificate authentication from `azurerm_kubernetes_cluster.kube_config`
+
+### Kubernetes Provider Authentication
+Initially encountered "Unauthorized" errors with Kubernetes provider. Resolution:
+- AKS created without AAD integration (`aadProfile: null`)
+- `kube_config` provides client certificates when local accounts are enabled
+- Provider configured with `host`, `cluster_ca_certificate`, `client_certificate`, `client_key`
+
+### Migration Steps Performed
+1. Created `terraform/platform/` directory structure
+2. Copied modules from `terraform/modules/` to `terraform/platform/modules/`
+3. Migrated state with `terraform state mv` commands
+4. Created tenant-access module with all resource types
+5. Imported existing APIM product created by ArgoCD
+6. Deleted old ArgoCD-created subscriptions/policies via REST API
+7. Successfully applied both platform and tenant-access states
+
+### Verification
+All resources successfully created and verified:
+```bash
+# APIM Product
+az apim product show -g rg-hai-twej -n apim-hai-twej --product-id product-alpha
+# → State: published, displayName: "AI Access - Team Alpha"
+
+# Foundry Project
+az rest --method GET --uri ".../projects?api-version=2025-06-01"
+# → project-alpha exists in af-hai-twej
+
+# K8s Namespace
+kubectl get namespace team-alpha
+# → Status: Active, labels include terraform-managed
+
+# K8s Secret
+kubectl get secret ai-gateway-credentials -n team-alpha
+# → Contains APIM_GATEWAY_URL, APIM_API_KEY, OPENAI_API_BASE, OPENAI_API_KEY
+```
+
+### Next Steps
+- Add GitHub Actions workflow for automated tenant-access apply on PR merge
+- Configure Terraform state storage in Azure Storage Account
+- Consider adding KAITO workspace provisioning per team model requests
+
+## Post-Migration Cleanup - Remove ArgoCD/ASO (Date: 2026-01-24)
+
+After migrating to pure Terraform, cleaned up obsolete ArgoCD and ASO components.
+
+### Removed from AKS Module
+| File/Resource | Description |
+|---------------|-------------|
+| `extensions.tf` | Deleted - contained ArgoCD AKS extension |
+| `bootstrap.tf` | Deleted - contained run command for ArgoCD bootstrap and ASO values file generation |
+| `azurerm_user_assigned_identity.aso` | Removed from aks.tf |
+| `azurerm_role_assignment.aso_contributor` | Removed from rbac.tf |
+| `azurerm_federated_identity_credential.aso` | Removed from aks.tf |
+| ArgoCD variables | Removed `argocd_version`, `argocd_train`, `argocd_auto_upgrade`, `argocd_ha`, `argocd_bootstrap_manifest_url`, `aso_crd_pattern` |
+| ASO outputs | Removed `aso_managed_identity_id`, `aso_managed_identity_client_id`, `aso_managed_identity_principal_id`, `aso_workload_identity_subject` |
+
+### Removed from Repository
+| Path | Description |
+|------|-------------|
+| `argocd/` | Entire folder deleted (bootstrap-application.yaml, apps/, values/) |
+| `charts/developer-access/templates/product.yaml` | APIM Product resource (now in Terraform) |
+| `charts/developer-access/templates/product-api.yaml` | APIM Product API link (now in Terraform) |
+| `charts/developer-access/templates/product-policy.yaml` | APIM Product Policy (now in Terraform) |
+| `charts/developer-access/templates/subscription.yaml` | APIM Subscription (now in Terraform) |
+| `charts/developer-access/templates/foundry-project.yaml` | Foundry Project (now in Terraform) |
+
+### Updated Developer-Access Helm Chart
+The chart now only handles KAITO workspaces for teams that request open-source model hosting:
+- Simplified `values.yaml` to only `team.name` and `kaito.workspaces`
+- Simplified `_helpers.tpl` to remove APIM/Foundry ARM ID helpers
+- Updated `kaito-workspace.yaml` to use new `kaito.enabled` path instead of `models.kaito.enabled`
+
+### Azure Resources Destroyed
+```bash
+terraform apply  # 5 resources destroyed in ~17 minutes
+- module.aks_kaito.azapi_resource.argocd_extension
+- module.aks_kaito.azapi_resource_action.argocd_bootstrap[0]
+- module.aks_kaito.azurerm_federated_identity_credential.aso
+- module.aks_kaito.azurerm_role_assignment.aso_contributor
+- module.aks_kaito.azurerm_user_assigned_identity.aso
+```
+
+### Current State Summary
+| Component | Managed By |
+|-----------|------------|
+| Core Infrastructure (VNet, AKS, APIM, Foundry) | Terraform platform state |
+| Per-Team Resources (APIM Products, Foundry Projects, K8s Secrets) | Terraform tenant-access state |
+| KAITO Workspaces | Helm chart (optional, for OSS model hosting) |
+| ArgoCD | **Removed** |
+| Azure Service Operator | **Removed** |
+
