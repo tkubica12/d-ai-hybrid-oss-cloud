@@ -11,14 +11,14 @@ models:
   foundry:
     enabled: true
     models:
-      - gpt-4.1
-      - gpt-5.2
+      - name: gpt-4.1
+        tokensPerMinute: 10000
+        dailyTokenQuota: 500000
+      - name: gpt-5.2
+        tokensPerMinute: 40000
+        dailyTokenQuota: 1500000
   kaito:
-    enabled: true
+    enabled: false
     workspaces:
       - name: mistral-7b-instruct
         instanceType: Standard_NC24ads_A100_v4
-
-limits:
-  tokensPerMinute: 50000
-  dailyTokenQuota: 2000000

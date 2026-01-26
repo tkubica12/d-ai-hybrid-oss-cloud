@@ -1,5 +1,65 @@
 # Implementation Log
 
+## Per-Model Rate Limiting Architecture (Date: 2026-01-26)
+
+Refactored tenant-access module to support per-model, per-team token rate limiting instead of a single team-wide quota.
+
+### Problem Statement
+- Previous implementation had a single `tokensPerMinute` and `dailyTokenQuota` per team
+- All models shared the same token bucket via `counter-key="@(context.Subscription.Id)"`
+- No way to give teams different quotas for different models (e.g., 5K tokens/min for gpt-4.1, 45K for gpt-5.2)
+
+### Solution Implemented
+
+1. **New YAML structure** - per-model limits in `developer-requests/<team>/access.yaml`:
+   ```yaml
+   models:
+     foundry:
+       models:
+         - name: gpt-4.1
+           tokensPerMinute: 10000
+           dailyTokenQuota: 500000
+         - name: gpt-5.2
+           tokensPerMinute: 40000
+           dailyTokenQuota: 1500000
+   ```
+
+2. **Dynamic APIM policy** with `<choose>` statements:
+   - Extracts `deployment-id` from URL path using regex
+   - Applies different `llm-token-limit` per model
+   - Uses model-specific counter-key: `@(context.Subscription.Id + "-{model-name}")`
+   - Returns 403 for models not in team's allowed list
+
+3. **Updated locals.tf**:
+   - `foundry_models` now contains objects with `name`, `tokens_per_minute`, `daily_token_quota`
+   - Added `team_models_map` for potential future per-model resource iteration
+
+### Key Policy Logic
+```xml
+<set-variable name="deployment-id" value="@{
+  var path = context.Request.Url.Path;
+  var match = Regex.Match(path, @"/deployments/([^/]+)/");
+  return match.Success ? match.Groups[1].Value : "";
+}" />
+<choose>
+  <when condition="@(context.Variables.GetValueOrDefault<string>("deployment-id") == "gpt-4.1")">
+    <llm-token-limit counter-key="@(context.Subscription.Id + "-gpt-4.1")" tokens-per-minute="10000" ... />
+  </when>
+  <when condition="...gpt-5.2">...</when>
+  <otherwise>
+    <return-response><set-status code="403" /></return-response>
+  </otherwise>
+</choose>
+```
+
+### Benefits
+- Fine-grained cost control per model
+- Teams can have premium access to some models, limited access to others
+- Unauthorized models are explicitly blocked with 403
+- Each model has its own token bucket (counters don't interfere)
+
+---
+
 ## Per-Team Foundry Resources Architecture (Date: 2026-01-24)
 
 Refactored tenant-access module to provision a dedicated Foundry resource per team instead of projects under a shared Foundry resource.

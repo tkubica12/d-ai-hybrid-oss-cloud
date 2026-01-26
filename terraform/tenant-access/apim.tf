@@ -33,31 +33,51 @@ resource "azurerm_api_management_product_api" "openai" {
   depends_on = [azapi_resource.apim_product]
 }
 
-# Product Policy with LLM token-based rate limiting
-resource "azapi_resource" "apim_product_policy" {
-  for_each = local.teams
-
-  type      = "Microsoft.ApiManagement/service/products/policies@2024-06-01-preview"
-  name      = "policy"
-  parent_id = azapi_resource.apim_product[each.key].id
-
-  body = {
-    properties = {
-      format = "xml"
-      value  = <<-XML
+# Generate per-model rate limiting policy XML for each team
+locals {
+  team_policies = {
+    for team_name, team in local.teams : team_name => {
+      models = team.foundry_models
+      policy_xml = <<-XML
 <policies>
   <inbound>
     <base />
-    <!-- LLM token-based rate limiting and quota -->
-    <llm-token-limit
-      counter-key="@(context.Subscription.Id)"
-      tokens-per-minute="${each.value.tokens_per_minute}"
-      token-quota="${each.value.daily_token_quota}"
-      token-quota-period="Daily"
-      estimate-prompt-tokens="true"
-      remaining-tokens-header-name="x-ratelimit-remaining-tokens"
-      remaining-quota-tokens-header-name="x-quota-remaining-tokens"
-      tokens-consumed-header-name="x-tokens-consumed" />
+    <!-- Per-model LLM token-based rate limiting -->
+    <set-variable name="model-name" value="@(context.Request.MatchedParameters.GetValueOrDefault(&quot;deployment-id&quot;, &quot;&quot;))" />
+    <choose>
+${join("\n", [
+  for model in team.foundry_models : <<-CONDITION
+      <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;model-name&quot;) == &quot;${model.name}&quot;)">
+        <llm-token-limit
+          counter-key="@(context.Subscription.Id + &quot;-${model.name}&quot;)"
+          tokens-per-minute="${model.tokens_per_minute}"
+          token-quota="${model.daily_token_quota}"
+          token-quota-period="Daily"
+          estimate-prompt-tokens="true"
+          remaining-tokens-header-name="x-ratelimit-remaining-tokens"
+          remaining-quota-tokens-header-name="x-quota-remaining-tokens"
+          tokens-consumed-header-name="x-tokens-consumed" />
+      </when>
+CONDITION
+])}
+      <otherwise>
+        <!-- Default: deny access to models not in team's allowed list -->
+        <return-response>
+          <set-status code="403" reason="Model not authorized" />
+          <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+          </set-header>
+          <set-body>@{
+            return new JObject(
+              new JProperty("error", new JObject(
+                new JProperty("code", "ModelNotAuthorized"),
+                new JProperty("message", "Your subscription does not have access to this model.")
+              ))
+            ).ToString();
+          }</set-body>
+        </return-response>
+      </otherwise>
+    </choose>
   </inbound>
   <backend>
     <base />
@@ -70,6 +90,22 @@ resource "azapi_resource" "apim_product_policy" {
   </on-error>
 </policies>
       XML
+    }
+  }
+}
+
+# Product Policy with per-model LLM token-based rate limiting
+resource "azapi_resource" "apim_product_policy" {
+  for_each = local.teams
+
+  type      = "Microsoft.ApiManagement/service/products/policies@2024-06-01-preview"
+  name      = "policy"
+  parent_id = azapi_resource.apim_product[each.key].id
+
+  body = {
+    properties = {
+      format = "xml"
+      value  = local.team_policies[each.key].policy_xml
     }
   }
 

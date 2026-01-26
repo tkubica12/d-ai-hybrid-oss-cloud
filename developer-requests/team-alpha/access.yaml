@@ -11,11 +11,9 @@ models:
   foundry:
     enabled: true
     models:
-      - gpt-4.1
+      - name: gpt-4.1
+        tokensPerMinute: 10000
+        dailyTokenQuota: 1000000
   kaito:
     enabled: false
     workspaces: []
-
-limits:
-  tokensPerMinute: 10000
-  dailyTokenQuota: 1000000

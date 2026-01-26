@@ -1,5 +1,41 @@
 # Common Errors and Solutions
 
+## APIM Policy C# Expressions in XML - Quote Escaping
+
+### Error
+```
+RESPONSE 400: 400 Bad Request
+ERROR CODE: ValidationError
+"message": "'deployment-id' is an unexpected token. Expecting white space. Line 5, position 99."
+```
+Or similar XML parsing errors with "unexpected token" mentioning a string literal.
+
+### Context
+Occurs when using C# policy expressions in APIM policies that contain double quotes inside XML attributes.
+
+### Root Cause
+When a C# expression like `context.Request.MatchedParameters.GetValueOrDefault("deployment-id", "")` is placed inside an XML attribute `value="..."`, the inner double quotes break XML parsing.
+
+### Solution
+Use XML entity encoding `&quot;` for all double quotes inside C# expressions within XML attributes:
+
+**Wrong:**
+```xml
+<set-variable name="model-name" value="@(context.Request.MatchedParameters.GetValueOrDefault("deployment-id", ""))" />
+```
+
+**Correct:**
+```xml
+<set-variable name="model-name" value="@(context.Request.MatchedParameters.GetValueOrDefault(&quot;deployment-id&quot;, &quot;&quot;))" />
+```
+
+Also escape `<` and `>` as `&lt;` and `&gt;` for generic types:
+```xml
+<when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;model-name&quot;) == &quot;gpt-4.1&quot;)">
+```
+
+---
+
 ## APIM Product-API Link 409 Conflict
 
 ### Error

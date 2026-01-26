@@ -13,7 +13,7 @@ locals {
     ))
   }
 
-  # Flatten for easier iteration
+  # Flatten for easier iteration - now with per-model limits
   teams = {
     for team_name, config in local.team_configs :
     team_name => {
@@ -22,11 +22,34 @@ locals {
       owner            = config.team.owner
       cost_center      = try(config.team.costCenter, "")
       foundry_enabled  = try(config.models.foundry.enabled, true)
-      foundry_models   = try(config.models.foundry.models, [])
+      foundry_models = [
+        for model in try(config.models.foundry.models, []) : {
+          name              = model.name
+          tokens_per_minute = try(model.tokensPerMinute, 5000)
+          daily_token_quota = try(model.dailyTokenQuota, 100000)
+        }
+      ]
       kaito_enabled    = try(config.models.kaito.enabled, false)
       kaito_workspaces = try(config.models.kaito.workspaces, [])
-      tokens_per_minute = try(config.limits.tokensPerMinute, 5000)
-      daily_token_quota = try(config.limits.dailyTokenQuota, 100000)
     }
+  }
+
+  # Flatten team-model combinations for per-model resources
+  team_models = flatten([
+    for team_name, team in local.teams : [
+      for model in team.foundry_models : {
+        key               = "${team_name}-${model.name}"
+        team_name         = team_name
+        team              = team
+        model_name        = model.name
+        tokens_per_minute = model.tokens_per_minute
+        daily_token_quota = model.daily_token_quota
+      }
+    ]
+  ])
+
+  # Convert to map for for_each
+  team_models_map = {
+    for tm in local.team_models : tm.key => tm
   }
 }

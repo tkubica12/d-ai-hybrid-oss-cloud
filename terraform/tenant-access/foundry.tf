@@ -112,10 +112,10 @@ resource "azapi_resource" "foundry_apim_connection" {
         # Static list of models available through this connection
         models = jsonencode([
           for model in each.value.foundry_models : {
-            name = model
+            name = model.name
             properties = {
               model = {
-                name    = model
+                name    = model.name
                 version = ""
                 format  = "OpenAI"
               }
