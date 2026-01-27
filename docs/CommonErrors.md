@@ -297,3 +297,71 @@ required_providers {
 1. Update the provider version constraint in `providers.tf`
 2. Run `terraform init -upgrade` to downgrade the provider
 3. Run `terraform plan` or `terraform apply` - the errors should be resolved
+
+---
+
+## azapi_resource APIM Policy "Missing Resource Identity After Update"
+
+### Error
+```
+Error: Missing Resource Identity After Update
+
+  with azapi_resource.apim_product_policy["team-beta"],
+  on apim.tf line 121, in resource "azapi_resource" "apim_product_policy":
+ 121: resource "azapi_resource" "apim_product_policy" {
+
+The Terraform Provider unexpectedly returned no resource identity data after having no errors in the resource update.
+```
+
+### Context
+Occurs when using `azapi_resource` to manage APIM policies, backends, or operation policies. The azapi provider v2.x has a bug where it fails to return resource identity after updates for certain APIM child resources.
+
+### Root Cause
+The azapi provider does not properly handle the response from Azure APIM policy/backend update operations, causing state tracking failures.
+
+### Solution
+Convert the affected `azapi_resource` definitions to use the equivalent `azurerm` provider resources:
+
+| azapi Resource Type | azurerm Replacement |
+|---------------------|---------------------|
+| `Microsoft.ApiManagement/service/products/policies` | `azurerm_api_management_product_policy` |
+| `Microsoft.ApiManagement/service/backends` | `azurerm_api_management_backend` |
+| `Microsoft.ApiManagement/service/apis/operations/policies` | `azurerm_api_management_api_operation_policy` |
+
+**Before (azapi - problematic):**
+```hcl
+resource "azapi_resource" "apim_product_policy" {
+  type      = "Microsoft.ApiManagement/service/products/policies@2024-06-01-preview"
+  name      = "policy"
+  parent_id = azapi_resource.apim_product[each.key].id
+  body = {
+    properties = {
+      format = "xml"
+      value  = local.policy_xml
+    }
+  }
+}
+```
+
+**After (azurerm - working):**
+```hcl
+resource "azurerm_api_management_product_policy" "main" {
+  product_id          = "product-${each.value.name}"
+  api_management_name = local.platform.apim_name
+  resource_group_name = local.platform.resource_group_name
+  xml_content         = local.policy_xml
+
+  depends_on = [azapi_resource.apim_product]
+}
+```
+
+### Migration Steps
+1. Remove the old azapi resources from state:
+   ```powershell
+   terraform state rm 'azapi_resource.apim_product_policy["team-alpha"]'
+   ```
+2. Import the existing resources into the new azurerm resource addresses:
+   ```powershell
+   terraform import 'azurerm_api_management_product_policy.main["team-alpha"]' "/subscriptions/.../products/product-alpha"
+   ```
+3. Run `terraform apply` - no changes should be needed if the configuration matches

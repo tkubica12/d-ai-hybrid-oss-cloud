@@ -118,19 +118,15 @@ CONDITION
 }
 
 # Product Policy with per-model LLM token-based rate limiting
-resource "azapi_resource" "apim_product_policy" {
+resource "azurerm_api_management_product_policy" "main" {
   for_each = local.teams
 
-  type      = "Microsoft.ApiManagement/service/products/policies@2024-06-01-preview"
-  name      = "policy"
-  parent_id = azapi_resource.apim_product[each.key].id
+  product_id          = "product-${each.value.name}"
+  api_management_name = local.platform.apim_name
+  resource_group_name = local.platform.resource_group_name
+  xml_content         = local.team_policies[each.key].policy_xml
 
-  body = {
-    properties = {
-      format = "xml"
-      value  = local.team_policies[each.key].policy_xml
-    }
-  }
+  depends_on = [azapi_resource.apim_product]
 }
 
 # Subscription for each team - generates the API key

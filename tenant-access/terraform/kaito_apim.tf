@@ -3,22 +3,16 @@
 # Uses internal LoadBalancer IPs (VNet-routable) since APIM is VNet-integrated
 
 # APIM Backend per KAITO model (each model has its own LoadBalancer service)
-resource "azapi_resource" "apim_kaito_backend" {
+resource "azurerm_api_management_backend" "kaito" {
   for_each = local.kaito_models
 
-  type      = "Microsoft.ApiManagement/service/backends@2024-06-01-preview"
-  name      = "kaito-${each.key}"
-  parent_id = local.platform.apim_id
-
-  body = {
-    properties = {
-      title       = "KAITO ${each.value.display_name}"
-      description = "Backend for ${each.value.display_name} KAITO model"
-      protocol    = "http"
-      # Use VNet-internal LoadBalancer IP (APIM is VNet-integrated)
-      url = "http://${each.value.service_ip}"
-    }
-  }
+  name                = "kaito-${each.key}"
+  api_management_name = local.platform.apim_name
+  resource_group_name = local.platform.resource_group_name
+  protocol            = "http"
+  url                 = "http://${each.value.service_ip}"
+  title               = "KAITO ${each.value.display_name}"
+  description         = "Backend for ${each.value.display_name} KAITO model"
 }
 
 # APIM API for KAITO models (OpenAI-compatible)
@@ -113,17 +107,15 @@ resource "azapi_resource" "apim_kaito_completions_operation" {
 }
 
 # Policy to route chat completions to KAITO backend via Gateway API path
-resource "azapi_resource" "apim_kaito_chat_policy" {
+resource "azurerm_api_management_api_operation_policy" "kaito_chat" {
   for_each = local.kaito_models
 
-  type      = "Microsoft.ApiManagement/service/apis/operations/policies@2024-06-01-preview"
-  name      = "policy"
-  parent_id = azapi_resource.apim_kaito_chat_operation[each.key].id
+  api_name            = "kaito-openai"
+  api_management_name = local.platform.apim_name
+  resource_group_name = local.platform.resource_group_name
+  operation_id        = "${each.key}-chat-completions"
 
-  body = {
-    properties = {
-      format = "xml"
-      value  = <<-XML
+  xml_content = <<-XML
 <policies>
   <inbound>
     <!-- Set model-name for product policy authorization check -->
@@ -143,25 +135,24 @@ resource "azapi_resource" "apim_kaito_chat_policy" {
     <base />
   </on-error>
 </policies>
-      XML
-    }
-  }
+  XML
 
-  depends_on = [azapi_resource.apim_kaito_backend]
+  depends_on = [
+    azurerm_api_management_backend.kaito,
+    azapi_resource.apim_kaito_chat_operation
+  ]
 }
 
 # Policy for completions operation
-resource "azapi_resource" "apim_kaito_completions_policy" {
+resource "azurerm_api_management_api_operation_policy" "kaito_completions" {
   for_each = local.kaito_models
 
-  type      = "Microsoft.ApiManagement/service/apis/operations/policies@2024-06-01-preview"
-  name      = "policy"
-  parent_id = azapi_resource.apim_kaito_completions_operation[each.key].id
+  api_name            = "kaito-openai"
+  api_management_name = local.platform.apim_name
+  resource_group_name = local.platform.resource_group_name
+  operation_id        = "${each.key}-completions"
 
-  body = {
-    properties = {
-      format = "xml"
-      value  = <<-XML
+  xml_content = <<-XML
 <policies>
   <inbound>
     <!-- Set model-name for product policy authorization check -->
@@ -181,11 +172,12 @@ resource "azapi_resource" "apim_kaito_completions_policy" {
     <base />
   </on-error>
 </policies>
-      XML
-    }
-  }
+  XML
 
-  depends_on = [azapi_resource.apim_kaito_backend]
+  depends_on = [
+    azurerm_api_management_backend.kaito,
+    azapi_resource.apim_kaito_completions_operation
+  ]
 }
 
 # Associate KAITO API with team products that have KAITO models
