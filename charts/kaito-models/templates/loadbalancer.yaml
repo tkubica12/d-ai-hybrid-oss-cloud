@@ -1,0 +1,30 @@
+{{/*
+Internal LoadBalancer services for KAITO models
+Provides internal IPs that APIM can connect to
+*/}}
+{{- range $name, $model := .Values.models }}
+{{- if $model.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kaito-lb-{{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "kaito-models.labels" $ | nindent 4 }}
+    platform.ai/model: {{ $name | quote }}
+  annotations:
+    {{- if $.Values.loadbalancer.internal }}
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    {{- end }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "kaito-models.selectorLabels" $name | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $.Values.loadbalancer.port }}
+      targetPort: {{ $.Values.loadbalancer.targetPort }}
+      protocol: TCP
+{{- end }}
+{{- end }}

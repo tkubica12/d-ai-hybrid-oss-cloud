@@ -1,0 +1,16 @@
+apiVersion: v2
+name: kaito-models
+description: Helm chart for deploying KAITO Workspace CRDs and LoadBalancer services for OSS AI models
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - kaito
+  - ai
+  - llm
+  - gpu
+  - inference
+
+maintainers:
+  - name: Platform Team

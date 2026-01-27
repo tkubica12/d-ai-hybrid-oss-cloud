@@ -1,0 +1,25 @@
+{{/*
+KAITO Workspace CRD resources
+Deploys a Workspace for each enabled model
+*/}}
+{{- range $name, $model := .Values.models }}
+{{- if $model.enabled }}
+---
+apiVersion: kaito.sh/v1beta1
+kind: Workspace
+metadata:
+  name: workspace-{{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "kaito-models.labels" $ | nindent 4 }}
+    platform.ai/model: {{ $name | quote }}
+resource:
+  instanceType: {{ $model.instanceType }}
+  labelSelector:
+    matchLabels:
+      apps: {{ $name }}
+inference:
+  preset:
+    name: {{ $model.preset }}
+{{- end }}
+{{- end }}

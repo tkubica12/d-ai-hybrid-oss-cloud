@@ -1,5 +1,58 @@
 # Common Errors and Solutions
 
+## kubernetes_manifest Requires Cluster During Plan
+
+### Error
+```
+Error: Failed to construct REST client
+cannot create REST client: no client config
+
+  with module.kaito.kubernetes_manifest.kaito_workspace["phi-4"]
+```
+
+### Context
+Occurs when using `kubernetes_manifest` resource from HashiCorp's kubernetes provider to deploy CRDs (like KAITO Workspace) in the same terraform apply that creates the AKS cluster.
+
+### Root Cause
+The `kubernetes_manifest` resource **requires API access during planning time**. This is documented behavior from HashiCorp:
+
+> "This resource requires API access during planning time. This means the cluster has to be accessible at plan time and thus cannot be created in the same apply operation."
+
+This creates a chicken-and-egg problem: the kubernetes provider needs credentials from AKS, but AKS doesn't exist yet during plan.
+
+### Solution
+Use the **Helm provider** with `helm_release` resource instead. The Helm provider does NOT require cluster connection during plan - only during apply.
+
+1. Create a local Helm chart for your CRDs (e.g., `/charts/kaito-models/`)
+2. Use `helm_release` with the local chart path
+3. Pass AKS credentials to the Helm provider
+
+```hcl
+# In module providers.tf
+provider "helm" {
+  kubernetes {
+    host                   = var.kube_host
+    cluster_ca_certificate = base64decode(var.kube_cluster_ca_certificate)
+    client_certificate     = base64decode(var.kube_client_certificate)
+    client_key             = base64decode(var.kube_client_key)
+  }
+}
+
+# In module main.tf
+resource "helm_release" "kaito_models" {
+  name  = "kaito-models"
+  chart = "${path.module}/../../../../charts/kaito-models"
+  # ... values from var.enabled_models
+}
+```
+
+### Why NOT These Alternatives
+- **Two-stage apply with -target**: Requires manual intervention, not idempotent
+- **kubectl provider (gavinbunney)**: Third-party provider, not HashiCorp official
+- **null_resource with local-exec**: Fragile, requires kubectl installed locally
+
+---
+
 ## APIM Policy C# Expressions in XML - Quote Escaping
 
 ### Error

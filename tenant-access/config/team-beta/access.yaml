@@ -1,0 +1,25 @@
+# Team Beta access configuration
+# This file defines AI model access for Team Beta
+
+team:
+  name: beta
+  displayName: "AI Access - Team Beta"
+  owner: beta-lead@contoso.com
+  costCenter: CC-67890
+
+models:
+  # Foundry models - list of models with quotas
+  foundry:
+    - name: gpt-4.1
+      tokensPerMinute: 10000
+      dailyTokenQuota: 500000
+    - name: gpt-5.2
+      tokensPerMinute: 40000
+      dailyTokenQuota: 1500000
+
+  # KAITO models - references to platform-managed shared models
+  # Must be enabled in platform model_catalog.yaml
+  kaito:
+    - name: phi-4
+      tokensPerMinute: 50000
+      dailyTokenQuota: 5000000

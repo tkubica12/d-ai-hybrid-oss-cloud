@@ -1,0 +1,30 @@
+# KAITO Models Helm Chart Values
+# Configure which models to deploy and their specifications
+
+# List of models to deploy
+models: {}
+  # Example:
+  # mistral-7b:
+  #   enabled: true
+  #   preset: mistral-7b-instruct
+  #   instanceType: Standard_NC24ads_A100_v4
+  # phi-4:
+  #   enabled: true
+  #   preset: phi-4
+  #   instanceType: Standard_NC24ads_A100_v4
+
+# Common configuration for all models
+namespace: default
+
+# Labels applied to all resources
+commonLabels:
+  platform.ai/managed-by: platform-terraform
+
+# LoadBalancer configuration
+loadbalancer:
+  # Use Azure internal LoadBalancer
+  internal: true
+  # Target port on KAITO pods (vLLM default)
+  targetPort: 5000
+  # Service port
+  port: 80

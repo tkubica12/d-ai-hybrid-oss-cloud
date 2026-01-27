@@ -1,5 +1,174 @@
 # Implementation Log
 
+## Helm Provider Solution for KAITO Deployment (Date: 2026-01-27)
+
+### Problem: kubernetes_manifest Chicken-and-Egg Problem
+
+The HashiCorp Kubernetes provider's `kubernetes_manifest` resource requires cluster API access **during plan time**, not just apply time. This is documented behavior:
+
+> "This resource requires API access during planning time. This means the cluster has to be accessible at plan time and thus cannot be created in the same apply operation."
+
+This caused `terraform plan` to fail with:
+```
+Error: Failed to construct REST client
+cannot create REST client: no client config
+```
+
+### Solution: Use Helm Provider with Local Chart
+
+The HashiCorp Helm provider's `helm_release` resource does **NOT** require cluster connection during plan. It only needs the cluster during apply.
+
+**Implementation:**
+1. Created Helm chart at `/charts/kaito-models/`
+2. Chart deploys KAITO Workspace CRDs and LoadBalancer services
+3. Kaito module uses `helm_release` resource with local chart path
+4. Credentials are passed to the Helm provider, creating implicit dependency on AKS
+
+**Chart Structure:**
+```
+/charts/kaito-models/
+├── Chart.yaml           # Chart metadata
+├── values.yaml          # Default values
+├── README.md            # Documentation
+└── templates/
+    ├── _helpers.tpl     # Template helpers
+    ├── workspaces.yaml  # KAITO Workspace CRDs
+    └── loadbalancer.yaml # Internal LoadBalancer services
+```
+
+**Key Benefits:**
+- Single `terraform apply` creates AKS and deploys KAITO workspaces
+- No CLI workarounds or multi-stage applies needed
+- Uses only official HashiCorp providers (helm, azurerm, azapi)
+- Chart can be tested independently with `helm template`
+
+---
+
+## Directory Structure Refactoring (Date: 2026-01-27)
+
+Major refactoring of the repository structure to improve organization and clarity.
+
+### Changes Made
+
+**New Structure:**
+```
+/platform                           # Platform infrastructure
+├── /config                         # Platform configuration
+│   └── model_catalog.yaml          # KAITO & Foundry model definitions (with enabled flag for both)
+├── /terraform                      # Platform Terraform (single layer with modules)
+│   ├── main.tf, providers.tf, etc. # Main terraform configuration
+│   └── /modules                    # Infrastructure modules
+│       ├── ai-platform/            # APIM + Foundry resources
+│       ├── aks-kaito/              # AKS with KAITO operator
+│       ├── kaito/                  # KAITO workspaces & LoadBalancers (NEW - extracted module)
+│       ├── monitoring/             # Log Analytics, Prometheus, Grafana
+│       └── networking/             # VNet, subnets, NAT, DNS
+└── /runtime                        # Runtime outputs (auto-generated)
+    └── platform-runtime.yaml       # Platform state for tenant-access
+
+/tenant-access                      # Tenant provisioning (was terraform/tenant-access)
+├── /config                         # Team access configurations (was developer-requests)
+│   ├── team-alpha/access.yaml      # Team Alpha model access
+│   └── team-beta/access.yaml       # Team Beta model access
+└── /terraform                      # Tenant Terraform
+    └── *.tf                        # APIM products, subscriptions, Foundry projects
+```
+
+**Key Changes:**
+1. Moved `/terraform/platform` → `/platform/terraform`
+2. Moved `/terraform/tenant-access` → `/tenant-access/terraform`
+3. Moved `/developer-requests` → `/tenant-access/config`
+4. Created `/platform/config` for model catalog
+5. Created `/platform/runtime` for platform output consumed by tenant-access
+6. Extracted KAITO functionality into separate `/platform/terraform/modules/kaito` module
+7. Enhanced model_catalog.yaml to include `foundry_models` with `enabled` flag
+8. Removed old `/terraform`, `/developer-requests`, `/charts` directories
+
+### Updated Paths in Terraform
+- Platform terraform now reads config from `../config/model_catalog.yaml`
+- Platform terraform outputs to `../runtime/platform-runtime.yaml`
+- Tenant-access reads platform state from `../../platform/terraform/terraform.tfstate`
+- Tenant-access reads runtime from `../../platform/runtime/platform-runtime.yaml`
+- Tenant-access reads team configs from `../config`
+
+---
+
+## Platform-Managed Shared KAITO Models (Date: 2026-01-26)
+
+Implemented centralized KAITO model management in the platform terraform, replacing per-team GPU deployments with shared, quota-controlled access via APIM.
+
+### Problem Statement
+- Per-team KAITO deployments meant each team needed their own GPU (expensive)
+- Teams were deploying KAITO workspaces via Helm charts (`charts/developer-access`)
+- No centralized control over which OSS models were available
+- GPU resources not shared across teams
+
+### Solution Implemented
+
+**1. Model Catalog (`terraform/platform/model_catalog.yaml`)**
+- Platform team controls which models are available
+- Models can be enabled/disabled by the platform team
+- Initial models: phi-4 (enabled), phi-4-mini, llama-3-8b, mistral-7b, deepseek-r1
+
+**2. KAITO Workspaces (`terraform/platform/kaito.tf`)**
+- Deploys KAITO workspaces using `kubernetes_manifest`
+- Only enabled models get provisioned
+- Uses Standard_NC24ads_A100_v4 GPU for phi-4
+
+**3. LoadBalancer Services (`terraform/platform/gateway.tf`)**
+- Creates internal LoadBalancer per model for APIM connectivity
+- Selector: `kaito.sh/workspace: workspace-<model-name>`
+- Exposes vLLM on port 80 (target 5000)
+
+**4. Platform Runtime Config (`terraform/platform/platform_runtime.tf`)**
+- Generates `platform-runtime.yaml` for tenant-access consumption
+- Contains model IPs, workspace names, endpoint paths
+
+### Architecture Flow
+```
+Platform Terraform                     Tenant-Access Terraform
+├── KAITO Workspaces (phi-4, etc.)    ├── APIM Backend (per model)
+├── LoadBalancer Services              ├── APIM API (kaito-api)
+│   └── IP: 10.10.0.6                 ├── Per-team products with quotas
+└── platform-runtime.yaml ───────────►└── Team access.yaml references models
+```
+
+### Key Decisions
+
+1. **Removed Gateway API + Istio** - Istio wasn't installed, so switched to simple LoadBalancer services per model
+2. **Direct ClusterIP → LoadBalancer** - APIM needs internal LB IP to connect from VNet
+3. **Model selector label** - KAITO uses `kaito.sh/workspace` label, not `app`
+
+### Files Created/Modified
+- `terraform/platform/model_catalog.yaml` - Model definitions
+- `terraform/platform/kaito.tf` - KAITO workspace deployment
+- `terraform/platform/gateway.tf` - LoadBalancer services
+- `terraform/platform/platform_runtime.tf` - Runtime config generation
+- `terraform/platform/providers.tf` - Added Kubernetes provider with client cert auth
+
+### Terraform Provider Authentication
+The Kubernetes provider uses client certificate authentication (not exec/kubelogin):
+```hcl
+provider "kubernetes" {
+  host                   = data.azurerm_kubernetes_cluster.main.kube_config[0].host
+  cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.main.kube_config[0].cluster_ca_certificate)
+  client_certificate     = base64decode(data.azurerm_kubernetes_cluster.main.kube_config[0].client_certificate)
+  client_key             = base64decode(data.azurerm_kubernetes_cluster.main.kube_config[0].client_key)
+}
+```
+This requires `disableLocalAccounts = false` on AKS.
+
+### Verification
+- phi-4 model tested successfully via LoadBalancer IP 10.10.0.6
+- Response: `{"choices":[{"message":{"content":"Hello! The sum of 2 + 2 is 4."}}]}`
+
+### Next Steps
+- Update tenant-access to create APIM backends/APIs for KAITO models
+- Team access.yaml should reference `kaito_models` for quota-based access
+- Apply tenant-access terraform
+
+---
+
 ## Per-Model Rate Limiting Architecture (Date: 2026-01-26)
 
 Refactored tenant-access module to support per-model, per-team token rate limiting instead of a single team-wide quota.

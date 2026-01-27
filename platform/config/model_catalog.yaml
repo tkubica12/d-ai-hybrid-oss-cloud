@@ -1,0 +1,83 @@
+# Platform-managed Model Catalog
+# This file configures both KAITO (OSS) and Foundry (Azure) model deployments
+# Models with enabled: true are deployed centrally by platform terraform
+# Teams can only request access to enabled models
+
+# KAITO models - deployed via KAITO operator on AKS
+kaito_models:
+  - name: phi-4
+    displayName: "Microsoft Phi-4"
+    description: "High-performance small language model from Microsoft"
+    preset: phi-4
+    instanceType: Standard_NC24ads_A100_v4
+    enabled: false
+    estimatedTokensPerMinute: 500000
+
+  - name: phi-4-mini
+    displayName: "Microsoft Phi-4 Mini"
+    description: "Compact version of Phi-4 for lighter workloads"
+    preset: phi-4-mini
+    instanceType: Standard_NC6s_v3
+    enabled: false
+    estimatedTokensPerMinute: 200000
+
+  - name: mistral-7b
+    displayName: "Mistral 7B Instruct"
+    description: "Mistral AI 7B parameter instruction-tuned model"
+    preset: mistral-7b-instruct
+    instanceType: Standard_NC24ads_A100_v4
+    enabled: true
+    estimatedTokensPerMinute: 600000
+
+  - name: llama-3-8b
+    displayName: "Meta Llama 3 8B"
+    description: "Meta's Llama 3 8B parameter model"
+    preset: llama-3-8b-instruct
+    instanceType: Standard_NC24ads_A100_v4
+    enabled: false
+    estimatedTokensPerMinute: 550000
+
+  - name: deepseek-r1
+    displayName: "DeepSeek R1"
+    description: "DeepSeek reasoning model"
+    preset: deepseek-r1-distill-llama-8b
+    instanceType: Standard_NC24ads_A100_v4
+    enabled: false
+    estimatedTokensPerMinute: 400000
+
+# Foundry models - deployed via Azure AI Foundry
+foundry_models:
+  - name: gpt-5.2
+    model_name: gpt-5.2
+    version: "2025-12-11"
+    sku_name: GlobalStandard
+    capacity: 100
+    enabled: true
+
+  - name: gpt-5-mini
+    model_name: gpt-5-mini
+    version: "2025-08-07"
+    sku_name: GlobalStandard
+    capacity: 100
+    enabled: true
+
+  - name: gpt-4.1
+    model_name: gpt-4.1
+    version: "2025-04-14"
+    sku_name: GlobalStandard
+    capacity: 100
+    enabled: true
+
+  - name: gpt-4.1-mini
+    model_name: gpt-4.1-mini
+    version: "2025-04-14"
+    sku_name: GlobalStandard
+    capacity: 100
+    enabled: true
+
+  - name: gpt-4.1-nano
+    model_name: gpt-4.1-nano
+    version: "2025-04-14"
+    sku_name: GlobalStandard
+    capacity: 100
+    enabled: true
