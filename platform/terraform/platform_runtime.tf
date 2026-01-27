@@ -34,6 +34,7 @@ resource "local_file" "platform_runtime" {
     kaito = {
       helm_release      = module.kaito.helm_release_name
       service_dns_names = module.kaito.service_dns_names
+      service_ips       = module.kaito.service_ips
       models = {
         for name, model in local.enabled_kaito_models :
         name => {
@@ -44,6 +45,7 @@ resource "local_file" "platform_runtime" {
           endpoint_path  = "/${name}"
           preset         = model.preset
           service_dns    = "kaito-lb-${name}.default.svc.cluster.local"
+          service_ip     = try(module.kaito.service_ips[name], null)
         }
       }
     }

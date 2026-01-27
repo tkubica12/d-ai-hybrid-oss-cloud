@@ -53,6 +53,103 @@ resource "helm_release" "kaito_models" {
 
 ---
 
+## Azure LoadBalancer Static IP Not Assigned
+
+### Error
+```
+Warning  SyncLoadBalancerFailed  service-controller  Error syncing load balancer: 
+failed to ensure load balancer: ensure(default/kaito-lb-mistral-7b): 
+lb(kubernetes-internal) - failed to get subnet:
+vnet-hai-iwjf//subscriptions/.../subnets/aks
+```
+
+LoadBalancer service gets a random IP instead of the requested static IP specified in annotations.
+
+### Context
+Using `service.beta.kubernetes.io/azure-load-balancer-internal-subnet` annotation with the full Azure resource ID instead of just the subnet name.
+
+### Root Cause
+The annotation `azure-load-balancer-internal-subnet` expects **only the subnet name**, not the full Azure resource ID.
+
+**Wrong:**
+```yaml
+annotations:
+  service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "/subscriptions/.../subnets/aks"
+```
+
+**Correct:**
+```yaml
+annotations:
+  service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "aks"
+```
+
+### Solution
+1. Update Helm values to pass subnet name only (not full resource ID)
+2. Use the `staticIP` field in model catalog to specify the IP per model
+3. Ensure the static IP is from the correct subnet range and not already in use
+
+**Correct LoadBalancer annotations for static internal IP:**
+```yaml
+annotations:
+  service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "aks"
+  service.beta.kubernetes.io/azure-load-balancer-ipv4: "10.10.0.200"
+```
+
+---
+
+## Helm Provider with AKS Data Source - First Run Failure
+
+### Error
+```
+Error: Failed to check installed release version
+Kubernetes cluster unreachable: invalid configuration: no configuration has been provided
+```
+
+### Context
+Occurs when the Helm provider is configured with a data source for AKS credentials, but AKS doesn't exist yet on the first terraform run.
+
+### Root Cause
+Terraform providers are initialized **before** any resources are evaluated. A data source used in provider configuration is evaluated at init time, not during the apply phase. If AKS doesn't exist yet, the data source fails.
+
+### Solution
+**Two-stage apply approach:**
+
+1. On first run, create AKS without Helm deployments:
+   ```bash
+   terraform apply -target=module.aks_kaito
+   ```
+
+2. Then run full apply for Helm charts:
+   ```bash
+   terraform apply
+   ```
+
+**Provider Configuration:**
+```hcl
+# Root-level data source (NO depends_on - wouldn't help)
+data "azurerm_kubernetes_cluster" "aks" {
+  name                = "aks-${local.base_name}"
+  resource_group_name = "rg-${local.base_name}"
+}
+
+provider "helm" {
+  kubernetes = {
+    host                   = data.azurerm_kubernetes_cluster.aks.kube_config[0].host
+    client_certificate     = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].client_certificate)
+    client_key             = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].client_key)
+    cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].cluster_ca_certificate)
+  }
+}
+```
+
+### Why NOT These Alternatives
+- **depends_on in data source**: Doesn't help - providers are initialized before resources
+- **kubeconfig file (~/.kube/config)**: Doesn't work on first run if AKS is created by same terraform
+- **Module outputs in provider**: Not allowed - providers can't reference computed values
+
+---
+
 ## APIM Policy C# Expressions in XML - Quote Escaping
 
 ### Error

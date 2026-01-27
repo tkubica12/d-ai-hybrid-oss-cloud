@@ -11,27 +11,19 @@ variable "enabled_models" {
   }))
 }
 
-# Kubernetes connection credentials
-variable "kube_host" {
-  description = "Kubernetes API server host"
+variable "dns_zone_name" {
+  description = "Private DNS zone name for KAITO model endpoints (e.g., kaito.internal)"
   type        = string
-  sensitive   = true
 }
 
-variable "kube_cluster_ca_certificate" {
-  description = "Kubernetes cluster CA certificate (base64 encoded)"
-  type        = string
-  sensitive   = true
+variable "model_ips" {
+  description = "Map of model name to static IP address for LoadBalancer"
+  type        = map(string)
 }
 
-variable "kube_client_certificate" {
-  description = "Kubernetes client certificate (base64 encoded)"
+variable "aks_subnet_name" {
+  description = "AKS subnet name for internal LoadBalancer annotation (just the name, not full resource ID)"
   type        = string
-  sensitive   = true
 }
 
-variable "kube_client_key" {
-  description = "Kubernetes client key (base64 encoded)"
-  type        = string
-  sensitive   = true
-}
+# Helm provider is passed from root module via providers block

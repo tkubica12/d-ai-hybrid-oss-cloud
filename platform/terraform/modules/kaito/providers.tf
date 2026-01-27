@@ -11,13 +11,5 @@ terraform {
   }
 }
 
-# Configure helm provider with credentials passed from parent
-# Note: Helm 3.x uses assignment syntax for kubernetes config, not block syntax
-provider "helm" {
-  kubernetes = {
-    host                   = var.kube_host
-    cluster_ca_certificate = base64decode(var.kube_cluster_ca_certificate)
-    client_certificate     = base64decode(var.kube_client_certificate)
-    client_key             = base64decode(var.kube_client_key)
-  }
-}
+# Helm provider is passed from the root module - do not configure here
+# This allows proper dependency ordering

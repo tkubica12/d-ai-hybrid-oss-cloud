@@ -20,6 +20,7 @@ module "networking" {
   base_name           = local.base_name
   base_name_nodash    = local.base_name_nodash
   vnet_cidr           = "10.10.0.0/16"
+  kaito_model_ips     = local.kaito_model_ips
   tags = {
     environment = "demo"
   }
@@ -58,6 +59,7 @@ module "ai_platform" {
   resource_group_id   = azurerm_resource_group.main.id
   location            = var.location
   base_name           = local.base_name
+  apim_subnet_id      = module.networking.subnet_ids["api-management"]
   tags = {
     environment = "demo"
   }
@@ -68,12 +70,16 @@ module "ai_platform" {
 module "kaito" {
   source = "./modules/kaito"
 
-  enabled_models = local.enabled_kaito_models
+  enabled_models  = local.enabled_kaito_models
+  dns_zone_name   = local.kaito_dns_zone_name
+  model_ips       = local.kaito_model_ips
+  aks_subnet_name = local.aks_subnet_name
 
-  # Pass kubernetes credentials from aks_kaito module
-  # This creates an implicit dependency - module waits for aks_kaito to complete
-  kube_host                   = module.aks_kaito.aks_kube_config_host
-  kube_cluster_ca_certificate = module.aks_kaito.aks_cluster_ca_certificate
-  kube_client_certificate     = module.aks_kaito.aks_client_certificate
-  kube_client_key             = module.aks_kaito.aks_client_key
+  # Helm provider is passed from root to ensure proper dependency ordering
+  providers = {
+    helm = helm
+  }
+
+  # Explicit dependency ensures AKS is ready before Helm operations
+  depends_on = [module.aks_kaito, module.networking]
 }

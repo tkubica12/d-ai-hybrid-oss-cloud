@@ -102,7 +102,7 @@ resource "terraform_data" "validate_kaito_models" {
 
   lifecycle {
     precondition {
-      condition     = false
+      condition     = length(local.kaito_validation_errors) == 0
       error_message = join("\n", local.kaito_validation_errors)
     }
   }

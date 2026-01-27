@@ -12,9 +12,10 @@ locals {
   platform_runtime = yamldecode(file(var.platform_runtime_path))
 
   # KAITO configuration from platform runtime
-  kaito_gateway_ip = local.platform_runtime.kaito.gateway_ip
-  kaito_models     = local.platform_runtime.kaito.models
-  kaito_catalog    = local.platform_runtime.kaito_catalog
+  kaito_service_dns = try(local.platform_runtime.kaito.service_dns_names, {})
+  kaito_service_ips = try(local.platform_runtime.kaito.service_ips, {})
+  kaito_models      = local.platform_runtime.kaito.models
+  kaito_catalog     = local.platform_runtime.kaito_catalog
 }
 
 # Convenience locals for platform outputs

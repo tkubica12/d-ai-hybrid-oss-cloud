@@ -26,11 +26,19 @@ locals {
     }
     api-management = {
       address_prefix = cidrsubnet(var.vnet_cidr, 8, 6)
+      # Required for APIM Standard v2 VNet integration
+      delegation = {
+        service = "Microsoft.Web/serverFarms"
+        actions = [
+          "Microsoft.Network/virtualNetworks/subnets/action"
+        ]
+      }
     }
   }
 
   private_dns_zones = {
-    acr  = "privatelink.azurecr.io"
-    blob = "privatelink.blob.core.windows.net"
+    acr   = "privatelink.azurecr.io"
+    blob  = "privatelink.blob.core.windows.net"
+    kaito = "kaito.internal"
   }
 }

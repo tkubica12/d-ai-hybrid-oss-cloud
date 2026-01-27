@@ -1,4 +1,4 @@
-# Azure API Management v2 Standard tier
+# Azure API Management v2 Standard tier with VNet integration
 # Uses azapi for access to the latest API version with v2 SKU support
 resource "azapi_resource" "apim" {
   type      = "Microsoft.ApiManagement/service@2024-06-01-preview"
@@ -19,6 +19,11 @@ resource "azapi_resource" "apim" {
     properties = {
       publisherEmail = var.apim_publisher_email
       publisherName  = var.apim_publisher_name
+      # VNet integration for accessing internal AKS LoadBalancer services
+      virtualNetworkType = "External"
+      virtualNetworkConfiguration = {
+        subnetResourceId = var.apim_subnet_id
+      }
     }
   }
 

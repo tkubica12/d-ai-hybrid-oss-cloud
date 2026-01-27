@@ -1,6 +1,7 @@
 {{/*
 Internal LoadBalancer services for KAITO models
-Provides internal IPs that APIM can connect to
+Provides internal IPs that APIM can connect to via private DNS
+Uses static IPs assigned via annotations for predictable DNS resolution
 */}}
 {{- range $name, $model := .Values.models }}
 {{- if $model.enabled }}
@@ -17,8 +18,17 @@ metadata:
     {{- if $.Values.loadbalancer.internal }}
     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
     {{- end }}
+    {{- if $.Values.loadbalancer.aksSubnetName }}
+    service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "{{ $.Values.loadbalancer.aksSubnetName }}"
+    {{- end }}
+    {{- if $model.staticIP }}
+    service.beta.kubernetes.io/azure-load-balancer-ipv4: {{ $model.staticIP | quote }}
+    {{- end }}
 spec:
   type: LoadBalancer
+  {{- if $model.staticIP }}
+  loadBalancerIP: {{ $model.staticIP | quote }}
+  {{- end }}
   selector:
     {{- include "kaito-models.selectorLabels" $name | nindent 4 }}
   ports:

@@ -24,4 +24,18 @@ locals {
     }
     if model.enabled
   ]
+
+  # Private DNS zone for KAITO models
+  kaito_dns_zone_name = "kaito.internal"
+
+  # Subnet name for internal LoadBalancer (just the name, not full resource ID)
+  aks_subnet_name = "aks"
+
+  # Static IPs for KAITO model LoadBalancers
+  # Uses staticIP from model catalog - each model defines its own IP
+  # IPs should be from AKS subnet range (10.10.0.0/24) and not conflict with nodes
+  kaito_model_ips = {
+    for name, model in local.enabled_kaito_models :
+    name => model.staticIP
+  }
 }

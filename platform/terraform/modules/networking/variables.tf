@@ -44,3 +44,12 @@ variable "tags" {
 Optional tags applied to resources that support tagging.
 EOF
 }
+
+variable "kaito_model_ips" {
+	type        = map(string)
+	default     = {}
+	description = <<EOF
+Map of KAITO model name to static IP address for DNS A records.
+Example: { "mistral-7b" = "10.10.0.200" }
+EOF
+}

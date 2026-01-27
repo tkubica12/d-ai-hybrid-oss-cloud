@@ -1,20 +1,22 @@
 # APIM configuration for KAITO models
 # Creates backend, API, and operations for platform-managed OSS models
+# Uses internal LoadBalancer IPs (VNet-routable) since APIM is VNet-integrated
 
-# APIM Backend pointing to Gateway API (single entry point for all KAITO models)
+# APIM Backend per KAITO model (each model has its own LoadBalancer service)
 resource "azapi_resource" "apim_kaito_backend" {
-  count = local.kaito_gateway_ip != null ? 1 : 0
+  for_each = local.kaito_models
 
   type      = "Microsoft.ApiManagement/service/backends@2024-06-01-preview"
-  name      = "kaito-gateway"
+  name      = "kaito-${each.key}"
   parent_id = local.platform.apim_id
 
   body = {
     properties = {
-      title       = "KAITO Gateway"
-      description = "Internal Gateway API for platform-managed OSS models"
+      title       = "KAITO ${each.value.display_name}"
+      description = "Backend for ${each.value.display_name} KAITO model"
       protocol    = "http"
-      url         = "http://${local.kaito_gateway_ip}"
+      # Use VNet-internal LoadBalancer IP (APIM is VNet-integrated)
+      url = "http://${each.value.service_ip}"
     }
   }
 }
@@ -33,7 +35,6 @@ resource "azapi_resource" "apim_kaito_api" {
       description = "OpenAI-compatible API for platform-managed OSS models"
       path        = "kaito"
       protocols   = ["https"]
-      serviceUrl  = local.kaito_gateway_ip != null ? "http://${local.kaito_gateway_ip}" : null
       subscriptionRequired = true
       subscriptionKeyParameterNames = {
         header = "api-key"
@@ -125,10 +126,12 @@ resource "azapi_resource" "apim_kaito_chat_policy" {
       value  = <<-XML
 <policies>
   <inbound>
+    <!-- Set model-name for product policy authorization check -->
+    <set-variable name="model-name" value="${each.key}" />
     <base />
-    <set-backend-service backend-id="kaito-gateway" />
-    <!-- Route to model-specific path on Gateway API -->
-    <rewrite-uri template="${each.value.endpoint_path}/v1/chat/completions" />
+    <set-backend-service backend-id="kaito-${each.key}" />
+    <!-- Route directly to vLLM chat completions endpoint -->
+    <rewrite-uri template="/v1/chat/completions" />
   </inbound>
   <backend>
     <base />
@@ -161,10 +164,12 @@ resource "azapi_resource" "apim_kaito_completions_policy" {
       value  = <<-XML
 <policies>
   <inbound>
+    <!-- Set model-name for product policy authorization check -->
+    <set-variable name="model-name" value="${each.key}" />
     <base />
-    <set-backend-service backend-id="kaito-gateway" />
-    <!-- Route to model-specific path on Gateway API -->
-    <rewrite-uri template="${each.value.endpoint_path}/v1/completions" />
+    <set-backend-service backend-id="kaito-${each.key}" />
+    <!-- Route directly to vLLM completions endpoint -->
+    <rewrite-uri template="/v1/completions" />
   </inbound>
   <backend>
     <base />

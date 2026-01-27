@@ -53,3 +53,23 @@ provider "random" {}
 provider "tls" {}
 
 provider "local" {}
+
+# Data source to get AKS kubeconfig credentials
+# NOTE: This data source requires AKS to already exist.
+# On first deployment, run: terraform apply -target=module.aks_kaito
+# Then run: terraform apply (to deploy Helm charts)
+data "azurerm_kubernetes_cluster" "aks" {
+  name                = "aks-${local.base_name}"
+  resource_group_name = "rg-${local.base_name}"
+}
+
+# Helm provider configured with AKS credentials from data source
+# Uses client certificates for authentication (works with local accounts enabled)
+provider "helm" {
+  kubernetes = {
+    host                   = data.azurerm_kubernetes_cluster.aks.kube_config[0].host
+    client_certificate     = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].client_certificate)
+    client_key             = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].client_key)
+    cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].cluster_ca_certificate)
+  }
+}

@@ -36,6 +36,11 @@ variable "apim_publisher_name" {
   default     = "AI Platform Team"
 }
 
+variable "apim_subnet_id" {
+  description = "Subnet ID for APIM VNet integration"
+  type        = string
+}
+
 variable "foundry_models" {
   description = "List of AI models to deploy in Foundry"
   type = list(object({

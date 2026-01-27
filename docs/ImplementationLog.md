@@ -1,5 +1,92 @@
 # Implementation Log
 
+## Static IP LoadBalancer Fix - Subnet Name vs Resource ID (Date: 2026-01-27)
+
+### Problem: Azure LoadBalancer Static IP Not Being Assigned
+
+The LoadBalancer annotation `service.beta.kubernetes.io/azure-load-balancer-internal-subnet` was being passed the full Azure resource ID instead of just the subnet name. This caused Azure to fail finding the subnet:
+
+```
+Error syncing load balancer: failed to get subnet:
+vnet-hai-iwjf//subscriptions/.../subnets/aks
+```
+
+The service was being assigned a random IP (`10.10.0.5`) instead of the requested static IP (`10.10.0.200`).
+
+### Solution: Use Subnet Name Only
+
+The `azure-load-balancer-internal-subnet` annotation expects **only the subnet name** (e.g., `aks`), not the full Azure resource ID.
+
+**Changes Made:**
+1. **Model Catalog**: Added `staticIP` field to each model in `platform/config/model_catalog.yaml`
+2. **Terraform locals.tf**: Changed to read static IP from catalog instead of auto-generating
+3. **Kaito module**: Changed variable from `aks_subnet_id` to `aks_subnet_name`
+4. **Helm chart**: Updated to use `aksSubnetName` instead of `aksSubnetId`
+
+**Correct Annotation Format:**
+```yaml
+annotations:
+  service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "aks"  # Just the name!
+  service.beta.kubernetes.io/azure-load-balancer-ipv4: "10.10.0.200"
+```
+
+**Result:** LoadBalancer now correctly assigns the static IP `10.10.0.200` matching the DNS A record.
+
+---
+
+## Private DNS Zone for KAITO Models with Static IPs (Date: 2026-01-27)
+
+### Problem: APIM VNet Integration Requires Known Endpoints
+
+APIM StandardV2 with VNet integration needs to reach KAITO model LoadBalancers via internal IPs. The challenge was:
+1. LoadBalancer IPs are dynamically assigned by Azure
+2. Kubernetes provider data source creates chicken-and-egg problem with Terraform
+3. Can't query cluster during terraform plan when AKS doesn't exist yet
+
+### Solution: Static IPs with Private DNS Zone
+
+Implemented a predictable DNS-based approach:
+
+1. **Private DNS Zone**: Created `kaito.internal` zone linked to VNet
+2. **Static IPs**: Pre-allocated IPs for each model (starting at `10.10.0.200`)
+3. **DNS A Records**: Created at terraform time (e.g., `mistral-7b.kaito.internal` → `10.10.0.200`)
+4. **LoadBalancer Annotations**: Helm chart uses `service.beta.kubernetes.io/azure-load-balancer-ipv4` to request specific IP
+
+**Benefits:**
+- APIM can use predictable URLs: `http://mistral-7b.kaito.internal/v1/chat/completions`
+- No runtime dependency on Kubernetes data sources
+- Works on first terraform apply (two-stage for AKS + Helm)
+- VNet-integrated APIM resolves private DNS automatically
+
+**Implementation:**
+- `platform/terraform/locals.tf`: Defines `kaito_model_ips` map
+- `platform/terraform/modules/networking/dns.tf`: Creates DNS A records
+- `charts/kaito-models/templates/loadbalancer.yaml`: Uses static IP annotation
+
+### Provider Configuration
+
+The Helm provider uses a root-level data source for AKS credentials:
+```hcl
+data "azurerm_kubernetes_cluster" "aks" {
+  name                = "aks-${local.base_name}"
+  resource_group_name = "rg-${local.base_name}"
+}
+
+provider "helm" {
+  kubernetes = {
+    host                   = data.azurerm_kubernetes_cluster.aks.kube_config[0].host
+    client_certificate     = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].client_certificate)
+    client_key             = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].client_key)
+    cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.aks.kube_config[0].cluster_ca_certificate)
+  }
+}
+```
+
+**First Run Requirement:** On initial deployment, use `terraform apply -target=module.aks_kaito` first, then full `terraform apply`.
+
+---
+
 ## Helm Provider Solution for KAITO Deployment (Date: 2026-01-27)
 
 ### Problem: kubernetes_manifest Chicken-and-Egg Problem

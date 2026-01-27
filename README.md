@@ -31,9 +31,21 @@ Hybrid AI platform combining Azure AI Foundry with open-source models via KAITO 
 
 ### Deploy Platform
 
+**First time deployment (AKS doesn't exist yet):**
 ```bash
 cd platform/terraform
 terraform init
+
+# Stage 1: Create AKS cluster first (Helm provider needs AKS to exist)
+terraform apply -target=module.aks_kaito
+
+# Stage 2: Deploy Helm charts and remaining resources
+terraform apply
+```
+
+**Subsequent deployments (AKS already exists):**
+```bash
+cd platform/terraform
 terraform apply
 ```
 

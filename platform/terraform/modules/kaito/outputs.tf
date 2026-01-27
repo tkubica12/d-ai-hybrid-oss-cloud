@@ -1,6 +1,4 @@
-# NOTE: LoadBalancer IPs are populated asynchronously by Azure after helm_release completes.
-# For immediate APIM backend configuration, use Kubernetes internal DNS names:
-#   kaito-lb-<model-name>.default.svc.cluster.local
+# KAITO module outputs including LoadBalancer IPs for APIM VNet-integrated access
 
 output "helm_release_name" {
   description = "Name of the Helm release"
@@ -21,9 +19,14 @@ output "workspace_names" {
 }
 
 output "service_dns_names" {
-  description = "Map of model name to internal Kubernetes DNS name for the LoadBalancer service"
+  description = "Map of model name to private DNS name for the LoadBalancer service"
   value = {
     for name, model in var.enabled_models :
-    name => "kaito-lb-${name}.default.svc.cluster.local"
+    name => "${name}.${var.dns_zone_name}"
   }
+}
+
+output "service_ips" {
+  description = "Map of model name to static internal LoadBalancer IP address"
+  value = var.model_ips
 }

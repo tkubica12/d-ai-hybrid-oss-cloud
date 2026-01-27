@@ -12,6 +12,7 @@ kaito_models:
     instanceType: Standard_NC24ads_A100_v4
     enabled: false
     estimatedTokensPerMinute: 500000
+    staticIP: "10.10.0.201"
 
   - name: phi-4-mini
     displayName: "Microsoft Phi-4 Mini"
@@ -20,6 +21,7 @@ kaito_models:
     instanceType: Standard_NC6s_v3
     enabled: false
     estimatedTokensPerMinute: 200000
+    staticIP: "10.10.0.202"
 
   - name: mistral-7b
     displayName: "Mistral 7B Instruct"
@@ -28,6 +30,7 @@ kaito_models:
     instanceType: Standard_NC24ads_A100_v4
     enabled: true
     estimatedTokensPerMinute: 600000
+    staticIP: "10.10.0.200"
 
   - name: llama-3-8b
     displayName: "Meta Llama 3 8B"
@@ -36,6 +39,7 @@ kaito_models:
     instanceType: Standard_NC24ads_A100_v4
     enabled: false
     estimatedTokensPerMinute: 550000
+    staticIP: "10.10.0.203"
 
   - name: deepseek-r1
     displayName: "DeepSeek R1"
@@ -44,6 +48,7 @@ kaito_models:
     instanceType: Standard_NC24ads_A100_v4
     enabled: false
     estimatedTokensPerMinute: 400000
+    staticIP: "10.10.0.204"
 
 # Foundry models - deployed via Azure AI Foundry
 foundry_models:

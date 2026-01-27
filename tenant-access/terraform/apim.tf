@@ -45,7 +45,12 @@ locals {
   <inbound>
     <base />
     <!-- Per-model LLM token-based rate limiting -->
-    <set-variable name="model-name" value="@(context.Request.MatchedParameters.GetValueOrDefault(&quot;deployment-id&quot;, &quot;&quot;))" />
+    <!-- Only set model-name from URL if not already set by operation policy -->
+    <choose>
+      <when condition="@(!context.Variables.ContainsKey(&quot;model-name&quot;))">
+        <set-variable name="model-name" value="@(context.Request.MatchedParameters.GetValueOrDefault(&quot;deployment-id&quot;, &quot;&quot;))" />
+      </when>
+    </choose>
     <choose>
 ${join("\n", [
   for model in team.foundry_models : <<-CONDITION
@@ -76,7 +81,8 @@ ${join("\n", [
           tokens-consumed-header-name="x-tokens-consumed" />
       </when>
 CONDITION
-] if try(local.kaito_catalog[model.name].enabled, false))}
+  if try(local.kaito_catalog[model.name].enabled, false)
+])}
       <otherwise>
         <!-- Default: deny access to models not in team's allowed list -->
         <return-response>
@@ -124,10 +130,6 @@ resource "azapi_resource" "apim_product_policy" {
       format = "xml"
       value  = local.team_policies[each.key].policy_xml
     }
-  }
-
-  lifecycle {
-    ignore_changes = [body]
   }
 }
 

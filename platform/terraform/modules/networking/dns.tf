@@ -14,3 +14,15 @@ resource "azurerm_private_dns_zone_virtual_network_link" "links" {
   registration_enabled  = false
   tags                  = var.tags
 }
+
+# DNS A records for KAITO model endpoints
+# Creates predictable DNS names like: mistral-7b.kaito.internal
+resource "azurerm_private_dns_a_record" "kaito_models" {
+  for_each            = var.kaito_model_ips
+  name                = each.key
+  zone_name           = azurerm_private_dns_zone.zones["kaito"].name
+  resource_group_name = var.resource_group_name
+  ttl                 = 300
+  records             = [each.value]
+  tags                = var.tags
+}
