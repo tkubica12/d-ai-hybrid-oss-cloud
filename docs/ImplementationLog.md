@@ -1,5 +1,111 @@
 # Implementation Log
 
+## APIM OpenAI v1 Endpoint and Managed Identity Authentication (Date: 2026-01-28)
+
+### Problem: Complex URL Rewriting Policies
+
+The original APIM configuration used the Azure OpenAI `/openai/deployments/{model}/{endpoint}` URL format which required:
+1. Extracting the model name from the request body
+2. Rewriting the URL with the model as a path segment
+3. Adding `api-version` query parameter
+
+This made policies complex and error-prone.
+
+### Solution: Use OpenAI-Compatible v1 Endpoint
+
+Azure AI Foundry now supports the **OpenAI v1 API format** at `https://<resource>.openai.azure.com/openai/v1/`:
+
+| Aspect | Old Format | New v1 Format |
+|--------|-----------|---------------|
+| Endpoint | `/openai/deployments/{model}/chat/completions` | `/openai/v1/chat/completions` |
+| Model Location | URL path segment | Request body (like OpenAI) |
+| API Version | Required query parameter | Implicit (not needed) |
+| SDK Compatibility | Azure OpenAI SDK | Standard OpenAI SDK |
+
+**Key Benefits:**
+1. **Direct OpenAI SDK compatibility** - Use standard `openai` Python/JS packages without modifications
+2. **No URL rewriting needed** - Requests pass through APIM directly to Foundry
+3. **Simpler policies** - Only backend service and authentication needed
+4. **Implicit versioning** - No `api-version` parameter management
+
+### Implementation Changes
+
+**1. Backend Configuration** ([apim.tf](../platform/terraform/modules/ai-platform/apim.tf)):
+```hcl
+resource "azapi_resource" "apim_backend_foundry" {
+  # ...
+  body = {
+    properties = {
+      url = "${foundry_endpoint}/openai/v1"  # v1 endpoint
+      # Added circuit breaker for 429/5xx handling
+      circuitBreaker = {
+        rules = [{
+          name = "openai-throttle-breaker"
+          failureCondition = {
+            count = 3
+            interval = "PT1M"
+            statusCodeRanges = [{ min = 429, max = 429 }, { min = 500, max = 599 }]
+          }
+          tripDuration = "PT30S"
+          acceptRetryAfter = true
+        }]
+      }
+    }
+  }
+}
+```
+
+**2. Simplified API Policy**:
+```xml
+<policies>
+    <inbound>
+        <base />
+        <set-backend-service backend-id="foundry-backend" />
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+    </inbound>
+    <!-- No URL rewriting needed! -->
+</policies>
+```
+
+**3. Added `/models` Endpoint**: For OpenAI SDK model discovery.
+
+### Managed Identity Authentication
+
+Authentication uses APIM's managed identity with the `authentication-managed-identity` policy:
+- Resource: `https://cognitiveservices.azure.com`
+- Required RBAC: `Cognitive Services OpenAI User` role on Foundry resource
+- No API keys stored or managed
+
+The managed identity is configured at the APIM instance level (system-assigned) and the Foundry resource has `disableLocalAuth = true` to enforce token-based authentication only.
+
+### Circuit Breaker for Rate Limiting
+
+Added circuit breaker rules to handle Azure OpenAI rate limiting:
+- Trips after 3 failures (429 or 5xx) within 1 minute
+- Accepts `Retry-After` header from Azure OpenAI
+- Trips for 30 seconds before retrying
+- Protects both APIM and backend from cascading failures
+
+### Client Usage
+
+Users can now use standard OpenAI SDKs:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://<apim>.azure-api.net/openai/v1/",
+    api_key="<apim-subscription-key>"  # APIM key, not OpenAI key
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",  # Model name in body
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+```
+
+---
+
 ## Static IP LoadBalancer Fix - Subnet Name vs Resource ID (Date: 2026-01-27)
 
 ### Problem: Azure LoadBalancer Static IP Not Being Assigned
