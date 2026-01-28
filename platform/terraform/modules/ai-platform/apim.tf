@@ -81,6 +81,27 @@ resource "azapi_resource" "apim_backend_foundry" {
   depends_on = [azapi_resource.apim, azapi_resource.foundry]
 }
 
+# APIM Backends for KAITO models (each model has its own LoadBalancer service)
+# Uses internal LoadBalancer IPs (VNet-routable) since APIM is VNet-integrated
+resource "azapi_resource" "apim_backend_kaito" {
+  for_each = var.kaito_models
+
+  type      = "Microsoft.ApiManagement/service/backends@2024-06-01-preview"
+  name      = "kaito-${each.key}"
+  parent_id = azapi_resource.apim.id
+
+  body = {
+    properties = {
+      title       = "KAITO ${each.value.display_name}"
+      description = "Backend for ${each.value.display_name} KAITO model via vLLM"
+      url         = "http://${each.value.service_ip}"
+      protocol    = "http"
+    }
+  }
+
+  depends_on = [azapi_resource.apim]
+}
+
 # APIM API definition for OpenAI-compatible v1 endpoint
 # Uses the OpenAI v1 API format where model is in request body, not URL
 # With the v1 Foundry endpoint, no URL rewriting is needed - requests pass through directly
@@ -172,9 +193,9 @@ resource "azapi_resource" "apim_api_models" {
   }
 }
 
-# API Policy for backend routing with managed identity auth
-# With the OpenAI v1 endpoint, no URL rewriting is needed - requests pass through directly
-# The Foundry /openai/v1 endpoint handles routing based on model name in request body
+# API Policy for unified backend routing
+# Routes requests to either Foundry or KAITO based on model name in request body
+# Model name is extracted from the JSON body and matched against known model lists
 resource "azapi_resource" "apim_api_policy" {
   type      = "Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview"
   name      = "policy"
@@ -187,11 +208,34 @@ resource "azapi_resource" "apim_api_policy" {
 <policies>
     <inbound>
         <base />
-        <!-- Route to Foundry backend (configured with /openai/v1 endpoint) -->
-        <set-backend-service backend-id="foundry-backend" />
-        <!-- Authenticate using APIM managed identity -->
-        <!-- The managed identity must have 'Cognitive Services OpenAI User' role on the Foundry resource -->
-        <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+        <!-- Extract model name from request body for routing decision -->
+        <set-variable name="requestBody" value="@(context.Request.Body.As<JObject>(preserveContent: true))" />
+        <set-variable name="model-name" value="@{
+            var body = (JObject)context.Variables["requestBody"];
+            return body?["model"]?.ToString() ?? "";
+        }" />
+        
+        <!-- Define known model lists (auto-generated from model_catalog.yaml) -->
+        <set-variable name="foundryModels" value="${replace(local.foundry_models_json, "\"", "'")}" />
+        <set-variable name="kaitoModels" value="${replace(local.kaito_models_json, "\"", "'")}" />
+        
+        <!-- Route based on model type -->
+        <choose>
+            <!-- KAITO models - route to model-specific backend -->
+%{for model_name in local.kaito_model_names~}
+            <when condition="@(context.Variables.GetValueOrDefault<string>("model-name") == "${model_name}")">
+                <set-backend-service backend-id="kaito-${model_name}" />
+                <!-- Rewrite to vLLM v1 endpoint (KAITO uses /v1 not /openai/v1) -->
+                <rewrite-uri template="@("/v1" + context.Request.Url.Path.Replace("/openai/v1", ""))" copy-unmatched-params="true" />
+            </when>
+%{endfor~}
+            <!-- Foundry models (default) - route to Foundry backend with managed identity -->
+            <otherwise>
+                <set-backend-service backend-id="foundry-backend" />
+                <!-- Authenticate using APIM managed identity -->
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+            </otherwise>
+        </choose>
     </inbound>
     <backend>
         <base />
@@ -207,5 +251,5 @@ resource "azapi_resource" "apim_api_policy" {
     }
   }
 
-  depends_on = [azapi_resource.apim_backend_foundry]
+  depends_on = [azapi_resource.apim_backend_foundry, azapi_resource.apim_backend_kaito]
 }

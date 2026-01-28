@@ -52,3 +52,24 @@ variable "foundry_models" {
   }))
   default = []
 }
+
+variable "kaito_models" {
+  description = <<-EOT
+    Map of enabled KAITO models with their service endpoints.
+    These models are deployed via KAITO operator on AKS and exposed via internal LoadBalancer.
+    The model name is used as the key and must match the name in model_catalog.yaml.
+    
+    Example:
+      {
+        "mistral-7b" = {
+          display_name = "Mistral 7B Instruct"
+          service_ip   = "10.10.0.200"
+        }
+      }
+  EOT
+  type = map(object({
+    display_name = string
+    service_ip   = string
+  }))
+  default = {}
+}

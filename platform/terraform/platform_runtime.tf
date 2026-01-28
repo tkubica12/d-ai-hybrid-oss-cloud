@@ -24,6 +24,15 @@ resource "local_file" "platform_runtime" {
       openai_api_name = module.ai_platform.openai_api_name
     }
 
+    # Unified API routing configuration
+    # Lists of models routed through the single /openai/v1 endpoint
+    unified_api = {
+      # Foundry models - routed to Azure AI Foundry
+      foundry_models = [for model in local.enabled_foundry_models : model.name]
+      # KAITO models - routed to KAITO/vLLM backends
+      kaito_models = keys(local.enabled_kaito_models)
+    }
+
     # AKS configuration
     aks = {
       id   = module.aks_kaito.aks_id

@@ -65,6 +65,15 @@ module "ai_platform" {
   }
   # Use enabled foundry models from catalog
   foundry_models = local.enabled_foundry_models
+
+  # Pass enabled KAITO models with their service IPs for unified API routing
+  kaito_models = {
+    for name, model in local.enabled_kaito_models :
+    name => {
+      display_name = model.displayName
+      service_ip   = model.staticIP
+    }
+  }
 }
 
 module "kaito" {

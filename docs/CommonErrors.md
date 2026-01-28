@@ -1,5 +1,34 @@
 # Common Errors and Solutions
 
+## azapi Provider: Missing Resource Identity After Read
+
+### Error
+```
+Error: Missing Resource Identity After Read
+
+The Terraform Provider unexpectedly returned no resource identity data
+after having no errors in the resource read. This is always an issue in the
+Terraform Provider and should be reported to the provider developers.
+```
+
+### Context
+Occurs with azapi provider v2.8.0 when reading resources that have been modified outside of Terraform or when there's API response issues. The resources are valid in Azure but the provider fails to read them.
+
+### Solution
+Remove the affected resources from state and let Terraform recreate them:
+
+```bash
+# Remove corrupted resources from state
+terraform state rm 'azapi_resource.example["key"]'
+
+# Run apply to recreate (will use existing Azure resources if they support upsert)
+terraform apply
+```
+
+The APIM resources like products and subscriptions support idempotent creation, so they'll be recreated without issue. Cognitive Services accounts may need to be deleted first if they already exist.
+
+---
+
 ## kubernetes_manifest Requires Cluster During Plan
 
 ### Error

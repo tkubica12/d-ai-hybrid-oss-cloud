@@ -1,5 +1,119 @@
 # Implementation Log
 
+## Unified OpenAI v1 API with Model-Based Routing (Date: 2026-01-28)
+
+### Problem: Separate APIs for Foundry and KAITO Models
+
+Previously, we had two separate APIs in APIM:
+- `/openai/v1/*` - For Azure AI Foundry models (GPT-5.2, GPT-4.1, etc.)
+- `/kaito/*` - For KAITO/vLLM OSS models (Mistral-7B, Phi-4, etc.)
+
+This required clients to:
+1. Know which API to use for each model
+2. Use different URL patterns for different model types
+3. Manage different endpoint configurations
+
+### Solution: Unified API with Dynamic Backend Routing
+
+All models now use the **single `/openai/v1/*` endpoint**. The APIM policy extracts the model name from the request body and routes to the appropriate backend:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Client Request: POST /openai/v1/chat/completions               │
+│ Body: { "model": "gpt-5.2", ... } OR { "model": "mistral-7b" } │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ APIM Policy: Extract model name from body                       │
+│ Route based on model type (auto-generated from catalog)         │
+└─────────────────────────────────────────────────────────────────┘
+                    │                       │
+          Foundry Models              KAITO Models
+          (gpt-5.2, gpt-4.1)         (mistral-7b, phi-4)
+                    │                       │
+                    ▼                       ▼
+         ┌──────────────────┐    ┌────────────────────┐
+         │ Azure AI Foundry │    │ KAITO/vLLM Backend │
+         │ /openai/v1/*     │    │ /v1/*              │
+         │ + Managed ID Auth│    │ (internal LB IP)   │
+         └──────────────────┘    └────────────────────┘
+```
+
+### Implementation Details
+
+**1. Model Catalog as Source of Truth** ([model_catalog.yaml](../platform/config/model_catalog.yaml)):
+- Defines both KAITO and Foundry models
+- `enabled: true` models are deployed and routed
+- Platform terraform reads this and generates routing rules
+
+**2. Dynamic Backend Creation** ([apim.tf](../platform/terraform/modules/ai-platform/apim.tf)):
+```hcl
+# Foundry backend (single endpoint for all models)
+resource "azapi_resource" "apim_backend_foundry" {
+  url = "${foundry_endpoint}/openai/v1"
+  # ...
+}
+
+# KAITO backends (one per model, each with its own LoadBalancer IP)
+resource "azapi_resource" "apim_backend_kaito" {
+  for_each = var.kaito_models
+  name     = "kaito-${each.key}"
+  url      = "http://${each.value.service_ip}"
+}
+```
+
+**3. Dynamic Policy Generation**:
+Policy is generated using Terraform template with model lists from catalog:
+```xml
+<choose>
+    <!-- KAITO models - route to model-specific backend -->
+    <when condition="@(model == 'mistral-7b')">
+        <set-backend-service backend-id="kaito-mistral-7b" />
+        <rewrite-uri template="/v1/chat/completions" />
+    </when>
+    <!-- Foundry models (default) -->
+    <otherwise>
+        <set-backend-service backend-id="foundry-backend" />
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+    </otherwise>
+</choose>
+```
+
+**4. Tenant Rate Limiting** ([apim.tf](../tenant-access/terraform/apim.tf)):
+Product policies apply per-model rate limiting regardless of backend:
+```xml
+<when condition="@(model == 'mistral-7b')">
+    <llm-token-limit tokens-per-minute="10000" ... />
+</when>
+```
+
+### Key Benefits
+
+| Aspect | Before (Separate APIs) | After (Unified API) |
+|--------|------------------------|---------------------|
+| Endpoints | 2 different paths | Single `/openai/v1/*` |
+| Client Config | Must know which API per model | Same config for all models |
+| SDK Support | Different patterns | Standard OpenAI SDK always |
+| Adding Models | Update both platform + tenant | Just add to model_catalog.yaml |
+| Backend Logic | Tenant-access managed | Platform managed |
+
+### URL Path Handling
+
+- **Foundry**: Uses `/openai/v1/*` natively - no rewrite needed
+- **KAITO/vLLM**: Uses `/v1/*` - policy rewrites `/openai/v1/*` to `/v1/*`
+
+### Files Changed
+
+- `platform/terraform/modules/ai-platform/apim.tf` - Added KAITO backends, unified routing policy
+- `platform/terraform/modules/ai-platform/main.tf` - Added model list locals
+- `platform/terraform/modules/ai-platform/variables.tf` - Added kaito_models variable
+- `platform/terraform/main.tf` - Pass KAITO models to ai-platform module
+- `platform/terraform/platform_runtime.tf` - Added unified_api section
+- `tenant-access/terraform/kaito_apim.tf` - **Deleted** (backends moved to platform)
+
+---
+
 ## APIM OpenAI v1 Endpoint and Managed Identity Authentication (Date: 2026-01-28)
 
 ### Problem: Complex URL Rewriting Policies
