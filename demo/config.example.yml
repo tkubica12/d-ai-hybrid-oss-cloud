@@ -1,0 +1,21 @@
+# Example configuration for APIM access testing
+# Copy this file to config.yaml and fill in your actual values
+
+models:
+  # Azure AI Foundry model via APIM
+  foundry-gpt4o:
+    url: "https://your-apim.azure-api.net/foundry"
+    key: "your-foundry-subscription-key"
+  
+  # KAITO model via APIM
+  kaito-phi4:
+    url: "https://your-apim.azure-api.net/kaito-phi4"
+    key: "your-kaito-subscription-key"
+  
+  # Another KAITO model example
+  kaito-deepseek:
+    url: "https://your-apim.azure-api.net/kaito-deepseek"
+    key: "your-kaito-subscription-key"
+
+# Test prompt to send to all models
+test_prompt: "What is 2+2? Answer briefly."

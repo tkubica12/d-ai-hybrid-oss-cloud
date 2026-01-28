@@ -1,0 +1,10 @@
+[project]
+name = "apim-access-test"
+version = "0.1.0"
+description = "Test APIM access to Foundry and KAITO models"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.0.0",
+    "pyyaml>=6.0",
+]

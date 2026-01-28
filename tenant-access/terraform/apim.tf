@@ -45,12 +45,15 @@ locals {
   <inbound>
     <base />
     <!-- Per-model LLM token-based rate limiting -->
-    <!-- Only set model-name from URL if not already set by operation policy -->
-    <choose>
-      <when condition="@(!context.Variables.ContainsKey(&quot;model-name&quot;))">
-        <set-variable name="model-name" value="@(context.Request.MatchedParameters.GetValueOrDefault(&quot;deployment-id&quot;, &quot;&quot;))" />
-      </when>
-    </choose>
+    <!-- Extract model name from request body (OpenAI v1 format) -->
+    <set-variable name="model-name" value="@{
+      try {
+        var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
+        return body?.GetValue("model")?.ToString() ?? "";
+      } catch {
+        return "";
+      }
+    }" />
     <choose>
 ${join("\n", [
   for model in team.foundry_models : <<-CONDITION

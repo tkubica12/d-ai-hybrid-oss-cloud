@@ -68,35 +68,38 @@ resource "azapi_resource" "foundry_project" {
   }
 }
 
-# Model deployments in Foundry - deployed sequentially to avoid conflicts - deployed sequentially to avoid conflicts
+# Model deployments in Foundry - deployed sequentially to avoid conflicts
 # Azure Cognitive Services only allows one deployment operation at a time
+# Using count with explicit chained dependencies via terraform_data
+
 resource "azapi_resource" "foundry_deployment" {
-  for_each = { for idx, m in var.foundry_models : m.name => merge(m, { index = idx }) }
+  count = length(var.foundry_models)
 
   type      = "Microsoft.CognitiveServices/accounts/deployments@2025-06-01"
-  name      = each.value.name
+  name      = var.foundry_models[count.index].name
   parent_id = azapi_resource.foundry.id
 
   body = {
     sku = {
-      name     = each.value.sku_name
-      capacity = each.value.capacity
+      name     = var.foundry_models[count.index].sku_name
+      capacity = var.foundry_models[count.index].capacity
     }
     properties = {
       model = {
         format  = "OpenAI"
-        name    = each.value.model_name
-        version = each.value.version
+        name    = var.foundry_models[count.index].model_name
+        version = var.foundry_models[count.index].version
       }
     }
   }
 
-  # Create deployments sequentially by depending on the previous one
   depends_on = [azapi_resource.foundry_project]
 
-  lifecycle {
-    # Retry on conflict errors
-    create_before_destroy = false
+  # Retry configuration for conflict errors (409)
+  retry = {
+    error_message_regex  = ["RequestConflict", "Another operation is being performed"]
+    interval_seconds     = 30
+    max_interval_seconds = 120
   }
 
   timeouts {

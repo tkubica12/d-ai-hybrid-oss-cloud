@@ -40,7 +40,7 @@ resource "azapi_resource" "apim_backend_foundry" {
     properties = {
       title       = "Azure AI Foundry"
       description = "Backend for Azure AI Foundry OpenAI endpoint"
-      url         = "${azapi_resource.foundry.output.properties.endpoint}openai"
+      url         = trimsuffix(azapi_resource.foundry.output.properties.endpoint, "/")
       protocol    = "http"
       tls = {
         validateCertificateChain = true
@@ -52,7 +52,9 @@ resource "azapi_resource" "apim_backend_foundry" {
   depends_on = [azapi_resource.apim, azapi_resource.foundry]
 }
 
-# APIM API definition for OpenAI-compatible endpoint
+# APIM API definition for OpenAI-compatible v1 endpoint
+# Uses the OpenAI v1 API format where model is in request body, not URL
+# APIM policy rewrites URLs to Azure OpenAI format (deployment-id in URL)
 resource "azapi_resource" "apim_api_openai" {
   type      = "Microsoft.ApiManagement/service/apis@2024-06-01-preview"
   name      = "openai-api"
@@ -61,22 +63,22 @@ resource "azapi_resource" "apim_api_openai" {
   body = {
     properties = {
       displayName          = "OpenAI API"
-      description          = "OpenAI-compatible API for AI models"
-      path                 = "openai"
+      description          = "OpenAI-compatible v1 API for AI models"
+      path                 = "openai/v1"
       protocols            = ["https"]
       subscriptionRequired = true
       subscriptionKeyParameterNames = {
         header = "api-key"
         query  = "api-key"
       }
-      serviceUrl = "${azapi_resource.foundry.output.properties.endpoint}openai"
+      serviceUrl = trimsuffix(azapi_resource.foundry.output.properties.endpoint, "/")
     }
   }
 
   depends_on = [azapi_resource.apim, azapi_resource.foundry]
 }
 
-# API Operations - Chat Completions
+# API Operations - Chat Completions (OpenAI v1 format)
 resource "azapi_resource" "apim_api_chat" {
   type      = "Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview"
   name      = "chat-completions"
@@ -87,30 +89,12 @@ resource "azapi_resource" "apim_api_chat" {
       displayName = "Chat Completions"
       description = "Creates a completion for the chat message"
       method      = "POST"
-      urlTemplate = "/deployments/{deployment-id}/chat/completions"
-      templateParameters = [
-        {
-          name        = "deployment-id"
-          description = "The deployment name"
-          type        = "string"
-          required    = true
-        }
-      ]
-      request = {
-        queryParameters = [
-          {
-            name        = "api-version"
-            description = "API version"
-            type        = "string"
-            required    = true
-          }
-        ]
-      }
+      urlTemplate = "/chat/completions"
     }
   }
 }
 
-# API Operations - Completions
+# API Operations - Completions (OpenAI v1 format)
 resource "azapi_resource" "apim_api_completions" {
   type      = "Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview"
   name      = "completions"
@@ -121,30 +105,12 @@ resource "azapi_resource" "apim_api_completions" {
       displayName = "Completions"
       description = "Creates a completion for the prompt"
       method      = "POST"
-      urlTemplate = "/deployments/{deployment-id}/completions"
-      templateParameters = [
-        {
-          name        = "deployment-id"
-          description = "The deployment name"
-          type        = "string"
-          required    = true
-        }
-      ]
-      request = {
-        queryParameters = [
-          {
-            name        = "api-version"
-            description = "API version"
-            type        = "string"
-            required    = true
-          }
-        ]
-      }
+      urlTemplate = "/completions"
     }
   }
 }
 
-# API Operations - Embeddings
+# API Operations - Embeddings (OpenAI v1 format)
 resource "azapi_resource" "apim_api_embeddings" {
   type      = "Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview"
   name      = "embeddings"
@@ -155,30 +121,13 @@ resource "azapi_resource" "apim_api_embeddings" {
       displayName = "Embeddings"
       description = "Creates an embedding vector"
       method      = "POST"
-      urlTemplate = "/deployments/{deployment-id}/embeddings"
-      templateParameters = [
-        {
-          name        = "deployment-id"
-          description = "The deployment name"
-          type        = "string"
-          required    = true
-        }
-      ]
-      request = {
-        queryParameters = [
-          {
-            name        = "api-version"
-            description = "API version"
-            type        = "string"
-            required    = true
-          }
-        ]
-      }
+      urlTemplate = "/embeddings"
     }
   }
 }
 
-# API Policy for backend routing
+# API Policy for backend routing with managed identity auth
+# Transforms OpenAI v1 format (model in body) to Azure OpenAI format (deployment-id in URL)
 resource "azapi_resource" "apim_api_policy" {
   type      = "Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview"
   name      = "policy"
@@ -186,12 +135,30 @@ resource "azapi_resource" "apim_api_policy" {
 
   body = {
     properties = {
-      format = "xml"
+      format = "rawxml"
       value  = <<-XML
 <policies>
     <inbound>
         <base />
         <set-backend-service backend-id="foundry-backend" />
+        <!-- Extract model from request body and rewrite URL to Azure OpenAI format -->
+        <set-variable name="model" value="@{
+            var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
+            return body["model"]?.ToString() ?? "gpt-4o-mini";
+        }" />
+        <rewrite-uri template="@{
+            var model = (string)context.Variables["model"];
+            var operation = context.Operation.Id;
+            string endpoint = "";
+            if (operation == "chat-completions") {
+                endpoint = "chat/completions";
+            } else if (operation == "completions") {
+                endpoint = "completions";
+            } else if (operation == "embeddings") {
+                endpoint = "embeddings";
+            }
+            return $"/openai/deployments/{model}/{endpoint}?api-version=2024-06-01";
+        }" />
         <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
     </inbound>
     <backend>
@@ -209,9 +176,4 @@ resource "azapi_resource" "apim_api_policy" {
   }
 
   depends_on = [azapi_resource.apim_backend_foundry]
-
-  lifecycle {
-    # Ignore body changes to avoid constant diffs from Azure API normalization
-    ignore_changes = [body]
-  }
 }

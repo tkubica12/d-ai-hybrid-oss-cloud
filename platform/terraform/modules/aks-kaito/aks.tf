@@ -97,6 +97,12 @@ resource "azapi_resource" "aks" {
   depends_on = [
     azurerm_user_assigned_identity.aks
   ]
+
+  lifecycle {
+    ignore_changes = [
+      body.properties.agentPoolProfiles # Ignore changes to node pools as KAITO creates nodes outside of Terraform
+    ]
+  }
 }
 
 resource "tls_private_key" "ssh" {
