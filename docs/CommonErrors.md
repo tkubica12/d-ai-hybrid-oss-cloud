@@ -1,5 +1,45 @@
 # Common Errors and Solutions
 
+## APIM to KAITO/vLLM Returns 404 "Not Found"
+
+### Error
+```json
+{"detail": "Not Found"}
+```
+HTTP 404 when calling KAITO models through APIM, but direct calls to vLLM from within the cluster work.
+
+### Context
+This error has two common causes:
+
+1. **Incorrect URL rewriting**: APIM's `context.Request.Url.Path` returns only the operation path (e.g., `chat/completions`), not the full API path. If your rewrite-uri tries to replace `/openai/v1`, it won't find it.
+
+2. **Model name mismatch**: vLLM uses the preset name as the model ID (e.g., `mistral-7b-instruct`), but requests may send a different name (e.g., `mistral-7b`).
+
+### Solution
+
+**For URL rewriting:**
+```xml
+<!-- WRONG: context.Request.Url.Path is just "chat/completions" -->
+<rewrite-uri template="@("/v1" + context.Request.Url.Path.Replace("/openai/v1", ""))" />
+
+<!-- CORRECT: Simply prepend /v1/ to the operation path -->
+<rewrite-uri template="@("/v1/" + context.Request.Url.Path)" copy-unmatched-params="true" />
+```
+
+**For model naming:** Align user-facing names with vLLM preset names in `model_catalog.yaml`:
+```yaml
+# Use the same name as the preset to avoid body rewriting
+- name: mistral-7b-instruct   # Same as preset
+  preset: mistral-7b-instruct
+```
+
+### Debugging Tips
+- Check vLLM model names: `curl http://<vllm-ip>/v1/models`
+- Test direct access: `kubectl run --rm -it debug --image=curlimages/curl -- curl http://<lb-ip>/v1/chat/completions ...`
+- Use debug return-response in APIM to inspect `context.Request.Url.Path` vs `context.Request.OriginalUrl.Path`
+
+---
+
 ## azapi Provider: Missing Resource Identity After Read
 
 ### Error

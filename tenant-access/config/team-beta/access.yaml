@@ -20,6 +20,6 @@ models:
   # KAITO models - references to platform-managed shared models
   # Must be enabled in platform model_catalog.yaml
   kaito:
-    - name: mistral-7b
+    - name: mistral-7b-instruct
       tokensPerMinute: 50000
       dailyTokenQuota: 5000000

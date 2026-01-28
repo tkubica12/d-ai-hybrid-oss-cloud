@@ -23,7 +23,7 @@ kaito_models:
     estimatedTokensPerMinute: 200000
     staticIP: "10.10.0.202"
 
-  - name: mistral-7b
+  - name: mistral-7b-instruct
     displayName: "Mistral 7B Instruct"
     description: "Mistral AI 7B parameter instruction-tuned model"
     preset: mistral-7b-instruct

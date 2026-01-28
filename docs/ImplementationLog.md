@@ -1,5 +1,40 @@
 # Implementation Log
 
+## Fixed KAITO Model Name Alignment (Date: 2026-01-28)
+
+### Problem: Model Name Mismatch Between User-Facing API and vLLM
+
+The KAITO model was configured with:
+- User-facing name: `mistral-7b`
+- vLLM preset/model ID: `mistral-7b-instruct`
+
+This mismatch required complex APIM body rewriting which proved unreliable. Additionally, the `rewrite-uri` policy was using an incorrect path transformation.
+
+### Solution: Align Names and Fix URL Rewriting
+
+1. **Simplified model naming** - Changed user-facing name to match preset:
+   - `name: mistral-7b-instruct` (same as preset)
+   - No body rewriting needed - request passes through unchanged
+
+2. **Fixed `rewrite-uri` policy** - The APIM `context.Request.Url.Path` returns only the operation path (e.g., `chat/completions`), not the full API path. Changed from:
+   ```xml
+   <!-- WRONG: context.Request.Url.Path doesn't include /openai/v1 -->
+   <rewrite-uri template="@("/v1" + context.Request.Url.Path.Replace("/openai/v1", ""))" />
+   ```
+   To:
+   ```xml
+   <!-- CORRECT: Simply prepend /v1/ to the operation path -->
+   <rewrite-uri template="@("/v1/" + context.Request.Url.Path)" copy-unmatched-params="true" />
+   ```
+
+### Files Changed
+- [platform/config/model_catalog.yaml](../platform/config/model_catalog.yaml) - Changed `name: mistral-7b` to `name: mistral-7b-instruct`
+- [platform/terraform/modules/ai-platform/apim.tf](../platform/terraform/modules/ai-platform/apim.tf) - Fixed `rewrite-uri` template
+- [tenant-access/config/team-beta/access.yaml](../tenant-access/config/team-beta/access.yaml) - Updated model reference
+- [demo/config.yaml](../demo/config.yaml) - Updated model reference
+
+---
+
 ## Unified OpenAI v1 API with Model-Based Routing (Date: 2026-01-28)
 
 ### Problem: Separate APIs for Foundry and KAITO Models

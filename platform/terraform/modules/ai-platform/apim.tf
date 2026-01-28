@@ -222,11 +222,12 @@ resource "azapi_resource" "apim_api_policy" {
         <!-- Route based on model type -->
         <choose>
             <!-- KAITO models - route to model-specific backend -->
-%{for model_name in local.kaito_model_names~}
+%{for model_name, model in var.kaito_models~}
             <when condition="@(context.Variables.GetValueOrDefault<string>("model-name") == "${model_name}")">
                 <set-backend-service backend-id="kaito-${model_name}" />
                 <!-- Rewrite to vLLM v1 endpoint (KAITO uses /v1 not /openai/v1) -->
-                <rewrite-uri template="@("/v1" + context.Request.Url.Path.Replace("/openai/v1", ""))" copy-unmatched-params="true" />
+                <!-- context.Request.Url.Path is the operation path (e.g., "chat/completions") -->
+                <rewrite-uri template="@("/v1/" + context.Request.Url.Path)" copy-unmatched-params="true" />
             </when>
 %{endfor~}
             <!-- Foundry models (default) - route to Foundry backend with managed identity -->

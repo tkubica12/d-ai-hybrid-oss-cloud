@@ -72,6 +72,7 @@ module "ai_platform" {
     name => {
       display_name = model.displayName
       service_ip   = model.staticIP
+      preset       = model.preset
     }
   }
 }

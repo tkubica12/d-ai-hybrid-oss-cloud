@@ -58,18 +58,21 @@ variable "kaito_models" {
     Map of enabled KAITO models with their service endpoints.
     These models are deployed via KAITO operator on AKS and exposed via internal LoadBalancer.
     The model name is used as the key and must match the name in model_catalog.yaml.
+    The preset name is the vLLM model ID that the service actually uses.
     
     Example:
       {
         "mistral-7b" = {
           display_name = "Mistral 7B Instruct"
           service_ip   = "10.10.0.200"
+          preset       = "mistral-7b-instruct"
         }
       }
   EOT
   type = map(object({
     display_name = string
     service_ip   = string
+    preset       = string
   }))
   default = {}
 }
