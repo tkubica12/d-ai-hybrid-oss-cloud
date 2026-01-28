@@ -70,7 +70,6 @@ def test_model(name: str, url: str, key: str, deployment: str, prompt: str) -> N
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=100,
         )
         
         answer = response.choices[0].message.content
